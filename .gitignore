@@ -1,0 +1,40 @@
+# Gradle cache and build folders
+.gradle/
+build/
+app/build/
+
+# Local configuration file (contains your local Android SDK path - DO NOT COMMIT)
+local.properties
+
+# IntelliJ and Android Studio specific files
+*.iml
+*.iws
+.idea/
+/.idea/workspace.xml
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+
+# Android Studio captures and navigation temp files
+/captures
+.navigation/
+
+# Native build folders (NDK/C++)
+.externalNativeBuild/
+.cxx/
+
+# Keystore files (Keep your app signing keys out of public version control!)
+*.jks
+*.keystore
+*.p12
+*.key
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Custom user environments
+.claude
+.kotlin
