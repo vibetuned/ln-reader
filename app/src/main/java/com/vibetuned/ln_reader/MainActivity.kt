@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
@@ -63,6 +64,11 @@ private fun LnReaderApp() {
     val currentDestination = currentBackStack?.destination
 
     Scaffold(
+        // Don't let the outer Scaffold add system-bar insets to the content padding — each
+        // screen's own Scaffold/TopAppBar consumes the status bar, and the NavigationBar below
+        // consumes the bottom inset. Without this, edge-to-edge (enforced on Android 15+) makes
+        // the status-bar inset get applied twice, leaving a tall blank band above the app bar.
+        contentWindowInsets = WindowInsets(0),
         bottomBar = {
             NavigationBar {
                 TopLevelDestination.entries.forEach { dest ->
