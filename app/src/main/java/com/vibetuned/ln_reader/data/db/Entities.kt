@@ -22,7 +22,11 @@ data class BookEntity(
      * user-configured download folder). Tells [delete] whether it's safe to remove the file —
      * we mustn't delete the user's original source.
      */
-    val isDownloaded: Boolean = false
+    val isDownloaded: Boolean = false,
+    /** Local path to an attached EPUB companion, or null. */
+    val epubPath: String? = null,
+    /** Local path to an attached sync_manifest.json companion, or null. */
+    val syncPath: String? = null
 )
 
 @Entity(

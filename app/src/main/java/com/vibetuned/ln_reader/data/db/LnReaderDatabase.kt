@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PositionEntity::class,
         EmbeddedImageEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class LnReaderDatabase : RoomDatabase() {
@@ -36,13 +36,20 @@ abstract class LnReaderDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE books ADD COLUMN epubPath TEXT")
+                db.execSQL("ALTER TABLE books ADD COLUMN syncPath TEXT")
+            }
+        }
+
         fun build(context: Context): LnReaderDatabase =
             Room.databaseBuilder(
                 context.applicationContext,
                 LnReaderDatabase::class.java,
                 "ln-reader.db"
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
     }

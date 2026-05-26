@@ -54,7 +54,8 @@ import java.util.concurrent.TimeUnit
 @Composable
 fun LibraryScreen(
     onPlayBook: (String) -> Unit = {},
-    onViewImages: (String) -> Unit = {}
+    onViewImages: (String) -> Unit = {},
+    onReadBook: (String) -> Unit = {}
 ) {
     val container = appContainer()
     val viewModel: LibraryViewModel = viewModel(
@@ -123,6 +124,10 @@ fun LibraryScreen(
             onViewImages = {
                 selectedBook = null
                 onViewImages(book.id)
+            },
+            onRead = {
+                selectedBook = null
+                onReadBook(book.id)
             },
             onDelete = {
                 viewModel.delete(book.id)

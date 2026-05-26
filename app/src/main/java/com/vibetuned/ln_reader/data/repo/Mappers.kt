@@ -17,7 +17,9 @@ internal fun BookEntity.toDomain() = Book(
     coverPath = coverPath,
     importedAt = importedAt,
     fileSize = fileSize,
-    syncKey = syncKey
+    syncKey = syncKey,
+    epubPath = epubPath,
+    syncPath = syncPath
 )
 
 internal fun ChapterEntity.toDomain() = Chapter(

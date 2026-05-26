@@ -2,10 +2,20 @@ package com.vibetuned.ln_reader.ui.player
 
 import com.vibetuned.ln_reader.data.model.Book
 import com.vibetuned.ln_reader.data.model.Chapter
+import com.vibetuned.ln_reader.data.model.EmbeddedImage
+
+/** A sync-manifest image pinned to an absolute book position, matched to an embedded m4b image. */
+data class ImageMarker(
+    val positionMs: Long,
+    /** Index into [PlayerUiState.images] of the matched embedded image. */
+    val imageIndex: Int
+)
 
 data class PlayerUiState(
     val book: Book? = null,
     val chapters: List<Chapter> = emptyList(),
+    val images: List<EmbeddedImage> = emptyList(),
+    val imageMarkers: List<ImageMarker> = emptyList(),
     val isControllerReady: Boolean = false,
     val isPlaying: Boolean = false,
     val isBuffering: Boolean = false,

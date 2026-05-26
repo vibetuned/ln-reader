@@ -19,6 +19,12 @@ interface BookDao {
 
     @Query("DELETE FROM books WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("UPDATE books SET epubPath = :path WHERE id = :id")
+    suspend fun updateEpubPath(id: String, path: String?)
+
+    @Query("UPDATE books SET syncPath = :path WHERE id = :id")
+    suspend fun updateSyncPath(id: String, path: String?)
 }
 
 @Dao

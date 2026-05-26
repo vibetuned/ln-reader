@@ -90,20 +90,13 @@ class BookRepository(
                 )
             }
 
-            onProgress(ImportProgress(ImportProgress.Phase.Parsing))
-            val parsed = M4bSource.open(context, uri).use { parser.parse(it) }
             val bookId = UUID.randomUUID().toString()
-
+            val fileName = fileNameFromUri(uri)
             val cleanup = mutableListOf<() -> Unit>()
             try {
-                val (coverPath, imageEntities) = writeImagesToCache(bookId, parsed.images)
-                if (coverPath != null) cleanup += { bookImageDir(bookId).deleteRecursively() }
-
-                val fileName = fileNameFromUri(uri)
-                val displayTitle = parsed.title?.takeIf { it.isNotBlank() }
-                    ?: fileName?.removeSuffix(".m4b")?.removeSuffix(".M4B")
-                    ?: "Untitled"
-
+                // For cloud sources, download the whole file first and parse the local copy.
+                // Parsing has to read most of the file anyway, so a single sequential download
+                // beats a scattered network parse followed by a separate download.
                 val downloadedUri: Uri? = if (isRemoteUri(uri)) {
                     val total = fileSizeFromUri(uri).takeIf { it > 0 } ?: -1L
                     onProgress(ImportProgress(ImportProgress.Phase.Downloading, 0, total))
@@ -118,6 +111,18 @@ class BookRepository(
                     cleanup += undoDownload
                     destUri
                 } else null
+
+                // Parse the local copy when we downloaded one, otherwise the original SAF URI.
+                val parseSource = downloadedUri ?: uri
+                onProgress(ImportProgress(ImportProgress.Phase.Parsing))
+                val parsed = M4bSource.open(context, parseSource).use { parser.parse(it) }
+
+                val (coverPath, imageEntities) = writeImagesToCache(bookId, parsed.images)
+                if (coverPath != null) cleanup += { bookImageDir(bookId).deleteRecursively() }
+
+                val displayTitle = parsed.title?.takeIf { it.isNotBlank() }
+                    ?: fileName?.removeSuffix(".m4b")?.removeSuffix(".M4B")
+                    ?: "Untitled"
 
                 val finalUri = downloadedUri?.toString() ?: uri.toString()
                 val finalSize = downloadedUri?.let { sizeOf(it) } ?: fileSizeFromUri(uri)
@@ -175,12 +180,54 @@ class BookRepository(
         if (imageDir.exists()) imageDir.deleteRecursively()
         val downloadDir = bookDownloadDir(bookId)
         if (downloadDir.exists()) downloadDir.deleteRecursively()
+        val companionDir = companionDir(bookId)
+        if (companionDir.exists()) companionDir.deleteRecursively()
         database.withTransaction {
             chapterDao.deleteForBook(bookId)
             imageDao.deleteForBook(bookId)
             bookDao.delete(bookId)
         }
     }
+
+    // ── companions (EPUB + sync manifest) ────────────────────────────────────────
+
+    suspend fun attachEpub(bookId: String, uri: Uri): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val target = File(companionDir(bookId).also { it.mkdirs() }, "book.epub")
+            copyUriToFile(uri, target)
+            bookDao.updateEpubPath(bookId, target.absolutePath)
+        }
+    }
+
+    suspend fun attachSync(bookId: String, uri: Uri): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val target = File(companionDir(bookId).also { it.mkdirs() }, "sync.json")
+            copyUriToFile(uri, target)
+            bookDao.updateSyncPath(bookId, target.absolutePath)
+        }
+    }
+
+    suspend fun detachEpub(bookId: String) = withContext(Dispatchers.IO) {
+        bookDao.byId(bookId)?.epubPath?.let { runCatching { File(it).delete() } }
+        // Drop any extracted EPUB working dir too (created by the reader).
+        File(context.filesDir, "epubs/$bookId").let { if (it.exists()) it.deleteRecursively() }
+        bookDao.updateEpubPath(bookId, null)
+    }
+
+    suspend fun detachSync(bookId: String) = withContext(Dispatchers.IO) {
+        bookDao.byId(bookId)?.syncPath?.let { runCatching { File(it).delete() } }
+        bookDao.updateSyncPath(bookId, null)
+    }
+
+    private fun copyUriToFile(uri: Uri, target: File) {
+        (context.contentResolver.openInputStream(uri)
+            ?: error("Couldn't open $uri")).use { input ->
+            target.outputStream().use { input.copyTo(it) }
+        }
+    }
+
+    private fun companionDir(bookId: String): File =
+        File(context.filesDir, "companions/$bookId")
 
     // ── downloads ──────────────────────────────────────────────────────────────
 

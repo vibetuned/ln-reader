@@ -36,8 +36,25 @@ An Android audiobook player for `.m4b` files, focused on audiobooks. Not on the 
 ### Downloads
 - Cloud SAF imports (Drive, OneDrive, etc.) are detected by content authority and **copied locally during import** so playback streams from disk, not the network.
 - Local SAF imports are referenced in place — no copy.
-- Import progress is phase-aware: `Parsing m4b…` → `Downloading: 12.3 MB / 245.0 MB` → done.
+- Import progress is phase-aware: `Downloading: 12.3 MB / 245.0 MB` → `Parsing m4b…` → done.
 - Settings → Downloads lets you point new downloads at any SAF tree folder (e.g. an SD card folder), or fall back to internal app storage. Existing books stay where they were.
+
+### EPUB companion + sync
+Each book can have two optional companions, attached from its detail sheet:
+- **EPUB** — a built-in WebView reader, reachable from the player top bar or the book's "Read" button. Manual page turning, white page background.
+- **Sync manifest** (`sync_manifest.json`) — ties audio timestamps to EPUB beats and illustration positions.
+
+What they unlock, depending on what's attached:
+
+| EPUB | sync | Result |
+|------|------|--------|
+| ✓ | ✓ | Reader **auto-follows** the audio: highlights the active `lnvox-beat` span, scrolls to it, turns pages as playback advances. Scrubber shows tappable image markers. |
+| ✓ | ✗ | Plain reader, manual paging only. |
+| ✗ | ✓ | Image markers on the scrubber only (no reader). |
+| ✗ | ✗ | Plain audiobook. |
+
+- In auto-follow mode, manually flipping a page pauses following; a **Resume** button re-engages it and jumps to the current beat.
+- Scrubber **image markers** sit at each manifest image's position (within the current chapter); tapping one opens the matching embedded m4b image.
 
 ## Requirements
 
@@ -51,6 +68,9 @@ An Android audiobook player for `.m4b` files, focused on audiobooks. Not on the 
 - **No streaming** — cloud books are fully downloaded at import time. A 300 MB audiobook takes the time the import bar shows, and uses 300 MB of local storage until you remove the book.
 - **Chapter parsing is Nero `chpl` only** (the format most m4b creators write). Files that store chapters as a QuickTime text track will load but show an empty chapter list.
 - The first embedded image (`covr` data atom) is treated as the cover. Other embedded images are exposed in the viewer but not tied to specific chapters.
+- **Scrubber image markers are matched to embedded m4b images by ordinal index** (1st manifest image ↔ 1st embedded image, …). A marker only appears if the m4b actually has an image at that index; manifest `src` paths are not resolved from the EPUB.
+- **Reader highlighting needs matching spans.** The EPUB must contain `<span class="lnvox-beat" data-beat-id="…">` elements whose ids match the sync manifest; beats without a matching span just don't highlight (no error).
+- The reader renders the EPUB's own CSS on a forced-white page; there's no dedicated dark reading theme yet.
 - **Re-importing the same file creates a duplicate book** (UUID-keyed library, no content hashing).
 - **No resume for interrupted downloads.** If you kill the app mid-download, the partial file is cleaned up and you need to re-import.
 - **Single-device only.** The app stores everything in its own database / file storage; uninstalling drops your library and saved positions.

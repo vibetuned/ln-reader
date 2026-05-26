@@ -7,8 +7,9 @@
 | Build | AGP 9.2.1, Gradle 9.4.1, JDK 21, Kotlin (AGP-bundled) |
 | UI | Jetpack Compose + Material 3, single Activity, Compose Navigation |
 | Playback | Media3 / ExoPlayer (`MediaSessionService`) |
-| Persistence | Room (current version 3), DataStore Preferences |
+| Persistence | Room (current version 4), DataStore Preferences |
 | Image loading | Coil 3 |
+| EPUB reader | `androidx.webkit` WebView + `WebViewAssetLoader` |
 | DI | Manual — a single `AppContainer` exposes lazy singletons |
 | Module layout | Single `:app` module, package-by-feature |
 
@@ -26,6 +27,7 @@ com.vibetuned.ln_reader
 │   ├── prefs/DownloadPreferences  DataStore wrapper for the download-folder tree URI
 │   └── repo/                      BookRepository, PositionRepository (+ Mappers)
 ├── m4b/                           Custom MP4 atom parser (M4bSource, AtomReader, M4bParser)
+├── companion/                     EpubBook (unzip + OPF spine), SyncManifest (+ parser)
 ├── player/                        PlaybackService, PlayerHolder, SleepTimer*, ShakeDetector,
 │                                   PostponeReceiver, SleepTimerNotifier
 └── ui/
@@ -34,6 +36,7 @@ com.vibetuned.ln_reader
     ├── navigation/                TopLevelDestination, LnReaderNavGraph, route patterns
     ├── player/                    PlayerScreen + ChapterListSheet + SpeedSheet
     │                              + SleepTimerSheet + PlayerViewModel
+    ├── reader/                    ReaderScreen + ReaderViewModel (EPUB WebView + beat sync)
     ├── settings/                  SettingsScreen + SettingsViewModel
     ├── theme/                     Color / Theme / Type (Material 3 dynamic color)
     ├── timer/                     TimerScreen + TimerControls + TimerViewModel
@@ -59,23 +62,24 @@ ViewModels are created with `viewModel(factory = SomeViewModel.factory(deps…))
 
 ## Data layer
 
-### Schema (Room v3)
+### Schema (Room v4)
 
 ```
 books(id PK, uri, title, author, album, durationMs, coverPath, importedAt,
-      fileSize, syncKey, isDownloaded)
+      fileSize, syncKey, isDownloaded, epubPath, syncPath)
 chapters(id PK auto, bookId FK, orderIndex, title, startMs)
 positions(bookId PK, positionMs, updatedAt)
 embedded_images(id PK auto, bookId FK, orderIndex, mimeType, cachePath)
 ```
 
 Migrations:
-- **v1 → v2** added `syncKey TEXT` for a sync feature that was removed; the column is vestigial but kept to avoid a v2→v3 table-rebuild migration.
+- **v1 → v2** added `syncKey TEXT` for a sync feature that was removed; the column is vestigial but kept to avoid a table-rebuild migration.
 - **v2 → v3** added `isDownloaded INTEGER NOT NULL DEFAULT 0`. Used by `BookRepository.delete` to decide whether the file at `uri` is a copy we own (delete it) or the user's original source (don't touch).
+- **v3 → v4** added `epubPath TEXT` and `syncPath TEXT` — local paths to the optional EPUB and sync-manifest companions.
 
 ### Repositories
 
-- `BookRepository` — `books()` flow, `import(uri, onProgress)`, `delete(id)`, `getDetail(id)`, `bookDetail(id)` flow.
+- `BookRepository` — `books()` flow, `import(uri, onProgress)`, `delete(id)`, `getDetail(id)`, `bookDetail(id)` flow, plus companion ops `attachEpub` / `attachSync` / `detachEpub` / `detachSync`.
 - `PositionRepository` — observe / get / save / clear, all keyed by `bookId`.
 
 Both repositories run their work on `Dispatchers.IO` and bundle multi-table writes in `database.withTransaction { }`.
@@ -94,27 +98,61 @@ Lives in `m4b/` and depends on no third-party library — `jaudiotagger` is JVM-
 
 The parser only reads metadata bytes, so it stays fast even over a slow Drive connection. The full audio is only read during the download phase (next section).
 
+## EPUB companions
+
+A book can have two optional companions, attached/detached per-book from the `BookDetailSheet` and copied into `filesDir/companions/<bookId>/` (`book.epub`, `sync.json`). The combinations:
+
+| EPUB | sync | Result |
+| --- | --- | --- |
+| ✓ | ✓ | reader with live beat highlighting + scrubber image markers |
+| ✓ | ✗ | plain reader |
+| ✗ | ✓ | scrubber image markers only |
+| ✗ | ✗ | base behavior |
+
+### Sync manifest (`companion/SyncManifest.kt`)
+
+Parses `sync_manifest.json` (via `org.json`) into:
+- `beats[]` — each `{ dataBeatId, chapterId, xhtml, startSeconds, endSeconds }`, sorted by start time. `beatAt(positionMs)` binary-searches the last beat whose window has started.
+- `images[]` — each `{ src, xhtml, triggerSeconds, ordinal }`. The `ordinal` (array position) is what matches a sync image to an embedded m4b image.
+
+`span_class` / `data_attr` default to `lnvox-beat` / `data-beat-id`.
+
+### Scrubber image markers (player)
+
+`PlayerViewModel.buildMarkers` parses the manifest and, for each sync image, keeps it only if there's an embedded m4b image at the same `orderIndex` — markers are m4b-backed by spec, not EPUB-backed. The scrubber is chapter-relative, so a marker only renders while you're in the chapter containing its `trigger_seconds`, positioned at its chapter-local fraction (inset by the slider thumb radius). Tapping opens the shared `FullScreenImageViewer` at that image index.
+
+### Reader (`companion/EpubBook.kt` + `ui/reader/`)
+
+- `EpubReader.ensureExtracted` unzips the EPUB into `filesDir/epubs/<bookId>/` once (Zip path-traversal guarded, idempotent). `parse` reads `META-INF/container.xml` → OPF, then builds the ordered spine as `{ rootRelativePath, url }`, where `url` is under `https://appassets.androidplatform.net/epub/`.
+- `ReaderScreen` hosts a `WebView` whose `WebViewClientCompat.shouldInterceptRequest` delegates to a `WebViewAssetLoader` with an `InternalStoragePathHandler` mounted at `/epub/` → the extracted dir. This serves the XHTML + relative images/CSS over a virtual https origin (no `file://` security issues). The WebView background is forced white so the EPUB's dark text stays readable under the app's dark theme.
+- `ReaderViewModel` polls the shared `PlayerHolder` controller every 400 ms. When the controller is playing **this** book, it maps position → active beat (`SyncManifest.beatAt`) → spine page. Highlighting is injected with `evaluateJavascript`: a `.lnvox-active` style plus `querySelector('[data-beat-id="…"]')` → add class + `scrollIntoView`.
+- **Auto-follow + manual nav**: follow is on by default (when sync present). Manual prev/next paging turns it off so you can read freely; a contextual **Resume** button (top bar, shown only while follow is off) re-engages it and jumps to the current beat.
+
+Entry points: the player top-bar book icon (enabled when `book.hasEpub`) and the `BookDetailSheet` "Read" button. Route `reader?bookId={bookId}`.
+
 ## Import flow
 
 ```
 SAF picker → BookRepository.import(uri, onProgress)
-  1. onProgress(Parsing)
-     M4bSource.open(context, uri) → M4bParser.parse(source) → ParsedM4b
-  2. writeImagesToCache(bookId, parsed.images) → filesDir/books/<id>/images/*.{jpg|png}
-  3. if isRemoteUri(uri)                           // authority not in com.android.*
+  1. if isRemoteUri(uri)                            // authority not in com.android.*
        onProgress(Downloading, 0, total)
        downloadToLocation(sourceUri, bookId, fileName,
                          targetFolder = DownloadPreferences.downloadFolderUri)
-       → file:///filesDir/downloads/<id>/<name>    // when no folder configured
-         OR content://<tree>/document/<created>     // when user picked a folder
-       releasePersistableUriPermission(originalUri)
+       → file:///filesDir/downloads/<id>/<name>     // when no folder configured
+         OR content://<tree>/document/<created>      // when user picked a folder
      else
-       use the original SAF URI in place
+       downloadedUri = null                          // parse the original SAF URI in place
+  2. onProgress(Parsing)
+     M4bSource.open(context, downloadedUri ?: uri) → M4bParser.parse(source) → ParsedM4b
+  3. writeImagesToCache(bookId, parsed.images) → filesDir/books/<id>/images/*.{jpg|png}
   4. onProgress(Finalizing)
      transaction { upsert book + chapters + images }
+     if downloadedUri != null: releasePersistableUriPermission(originalUri)
 ```
 
-Cleanup hooks (`val cleanup = mutableListOf<() -> Unit>()`) run via `try / finally` so a failure at any step removes the partial images / download.
+Remote files are **downloaded before parsing** — the parser reads most of the file regardless, so a single sequential download then a local parse is cheaper than a scattered network parse plus a download. Local files are parsed in place.
+
+Cleanup hooks (`val cleanup = mutableListOf<() -> Unit>()`) run via `try / finally` so a failure at any step removes the partial download / images.
 
 The remote/local heuristic is the URI authority: anything not under `com.android.*` is treated as remote and downloaded. This catches Drive, OneDrive, Dropbox, Box, and friends without an explicit allowlist.
 
@@ -167,20 +205,23 @@ When the timer fires:
 ```
 /data/data/com.vibetuned.ln_reader/files/
   ├── books/<bookId>/images/<idx>.{jpg|png}    parsed embedded images (always internal)
-  └── downloads/<bookId>/<filename>            downloaded m4b copies (when DownloadPreferences
-                                                points at the internal default)
+  ├── downloads/<bookId>/<filename>            downloaded m4b copies (when DownloadPreferences
+  │                                             points at the internal default)
+  ├── companions/<bookId>/{book.epub,sync.json} attached EPUB + sync manifest
+  └── epubs/<bookId>/…                         extracted EPUB working tree (for the WebView)
 ```
 
 When the user picks an external download folder, downloads land there instead (one file per book, prefixed with the first 8 chars of the book id so collisions can't happen).
 
 ## Navigation
 
-Single `NavHost` with five top-level routes plus two parameterized ones:
+Single `NavHost` with five top-level routes plus three parameterized ones:
 
 ```
 library
 player?bookId={bookId}    bookId optional — null when entered via bottom nav
 viewer?bookId={bookId}    same shape
+reader?bookId={bookId}    same shape
 timer
 settings
 ```

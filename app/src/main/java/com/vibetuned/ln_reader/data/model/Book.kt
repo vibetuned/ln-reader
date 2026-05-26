@@ -10,8 +10,13 @@ data class Book(
     val coverPath: String?,
     val importedAt: Long,
     val fileSize: Long,
-    val syncKey: String? = null
-)
+    val syncKey: String? = null,
+    val epubPath: String? = null,
+    val syncPath: String? = null
+) {
+    val hasEpub: Boolean get() = epubPath != null
+    val hasSync: Boolean get() = syncPath != null
+}
 
 data class Chapter(
     val id: Long,

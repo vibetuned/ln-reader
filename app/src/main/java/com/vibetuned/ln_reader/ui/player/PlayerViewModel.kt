@@ -8,10 +8,13 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
+import com.vibetuned.ln_reader.companion.SyncManifestParser
 import com.vibetuned.ln_reader.data.model.Book
+import com.vibetuned.ln_reader.data.model.BookDetail
 import com.vibetuned.ln_reader.data.repo.BookRepository
 import com.vibetuned.ln_reader.data.repo.PositionRepository
 import com.vibetuned.ln_reader.player.PlayerHolder
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +22,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 class PlayerViewModel(
     private val playerHolder: PlayerHolder,
@@ -81,10 +86,13 @@ class PlayerViewModel(
                 return@launch
             }
             val startPos = positionRepository.get(bookId) ?: 0L
+            val markers = buildMarkers(detail)
             _state.update {
                 it.copy(
                     book = detail.book,
                     chapters = detail.chapters,
+                    images = detail.images,
+                    imageMarkers = markers,
                     durationMs = detail.book.durationMs,
                     positionMs = startPos,
                     isLoading = false
@@ -173,17 +181,38 @@ class PlayerViewModel(
     private fun adoptCurrentBook(bookId: String) {
         viewModelScope.launch {
             val detail = bookRepository.getDetail(bookId) ?: return@launch
+            val markers = buildMarkers(detail)
             _state.update { current ->
                 // Bail if a concurrent open(...) already populated the book.
                 if (current.book?.id == bookId) current
                 else current.copy(
                     book = detail.book,
                     chapters = detail.chapters,
+                    images = detail.images,
+                    imageMarkers = markers,
                     durationMs = detail.book.durationMs.takeIf { it > 0 } ?: current.durationMs
                 )
             }
         }
     }
+
+    /**
+     * Build scrubber markers from the attached sync manifest (if any), keeping only images that
+     * map to an embedded m4b image by ordinal index.
+     */
+    private suspend fun buildMarkers(detail: BookDetail): List<ImageMarker> =
+        withContext(Dispatchers.IO) {
+            val syncPath = detail.book.syncPath ?: return@withContext emptyList()
+            val manifest = SyncManifestParser.parse(File(syncPath)) ?: return@withContext emptyList()
+            val byIndex = detail.images.associateBy { it.orderIndex }
+            manifest.images.mapNotNull { img ->
+                if (byIndex[img.ordinal] == null) return@mapNotNull null
+                ImageMarker(
+                    positionMs = (img.triggerSeconds * 1000).toLong(),
+                    imageIndex = img.ordinal
+                )
+            }
+        }
 
     private fun syncFromController(c: MediaController) {
         val dur = c.duration.takeIf { it > 0 } ?: _state.value.durationMs
