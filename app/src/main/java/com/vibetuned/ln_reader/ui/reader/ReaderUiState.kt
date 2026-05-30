@@ -14,5 +14,7 @@ data class ReaderUiState(
     val activeBeatId: String? = null,
     val dataAttr: String = "data-beat-id",
     val hasSync: Boolean = false,
-    val autoFollow: Boolean = true
+    val autoFollow: Boolean = true,
+    /** True when the player is actively playing the book that's open in the reader. */
+    val isAudioPlaying: Boolean = false
 )

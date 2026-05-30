@@ -39,12 +39,26 @@ class ReaderViewModel(
         playerHolder.connect()
         viewModelScope.launch {
             playerHolder.controller.collectLatest { controller ->
-                if (controller == null) return@collectLatest
+                if (controller == null) {
+                    _state.update { it.copy(isAudioPlaying = false) }
+                    return@collectLatest
+                }
                 while (true) {
                     delay(POLL_INTERVAL_MS)
+                    updateAudioPlaying(controller)
                     updateActiveBeat(controller)
                 }
             }
+        }
+    }
+
+    private fun updateAudioPlaying(controller: MediaController) {
+        val id = bookId
+        val playingThis = id != null &&
+            controller.isPlaying &&
+            controller.currentMediaItem?.mediaId == id
+        if (playingThis != _state.value.isAudioPlaying) {
+            _state.update { it.copy(isAudioPlaying = playingThis) }
         }
     }
 

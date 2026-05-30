@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,6 +68,16 @@ fun ReaderScreen(
 
     LaunchedEffect(bookId) {
         if (bookId != null) viewModel.open(bookId)
+    }
+
+    // Keep the screen on while the audio for this book is actually playing — so the user can
+    // read along without the device locking. The moment audio pauses (manually, or because the
+    // sleep timer fired), the flag is released and the screen can sleep again. Disposing the
+    // reader (back navigation) also releases it.
+    val view = LocalView.current
+    DisposableEffect(state.isAudioPlaying) {
+        view.keepScreenOn = state.isAudioPlaying
+        onDispose { view.keepScreenOn = false }
     }
 
     Scaffold(
