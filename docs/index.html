@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lectures and Narrations — ln-reader</title>
+  <meta name="description" content="An Android audiobook player for .m4b files, with chapter-relative scrubbing, sleep timers, and an EPUB companion reader that highlights text in sync with the audio." />
+  <link rel="icon" type="image/webp" href="assets/favicon.webp" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <meta property="og:title" content="Lectures and Narrations — ln-reader" />
+  <meta property="og:description" content="An Android audiobook player for enhanced, multi-voice .m4b audiobooks with synced EPUB reading." />
+  <meta property="og:type" content="website" />
+</head>
+<body>
+  <nav class="nav">
+    <div class="wrap">
+      <a class="nav-brand" href="index.html">
+        <img src="assets/icon.webp" alt="ln-reader icon" />
+        <span>ln-reader</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#sync" class="hide-sm">EPUB&nbsp;sync</a>
+        <a href="#build" class="hide-sm">Build</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="https://github.com/vibetuned/ln-reader">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="wrap">
+      <img class="hero-icon" src="assets/icon.webp" alt="Lectures and Narrations app icon" />
+      <p class="eyebrow">Lectures and Narrations</p>
+      <h1>Audiobooks that read along with you.</h1>
+      <p class="tagline">
+        An Android player for <strong>.m4b</strong> audiobooks — with chapter-relative
+        scrubbing, sleep timers, and an EPUB companion reader that highlights the text
+        in sync with the narration.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/vibetuned/ln-reader">View on GitHub →</a>
+        <a class="btn btn-ghost" href="#build">Build the app</a>
+      </div>
+      <div class="badge-row">
+        <span class="badge">Android 13+</span>
+        <span class="badge">Kotlin · Jetpack Compose</span>
+        <span class="badge">ExoPlayer / Media3</span>
+        <span class="badge">100% on-device</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Ecosystem -->
+  <section id="ecosystem">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>One ecosystem, two halves</h2>
+        <p>
+          LN began as an AI experiment in book understanding — using language models to
+          analyze narrative structure, character traits, and scene dynamics — and grew into
+          an end-to-end pipeline for immersive, multi-voice audiobooks.
+        </p>
+      </div>
+      <div class="split">
+        <div class="card">
+          <h3>ln-vox <span class="tag create">The Creator</span></h3>
+          <p>
+            An offline, self-hosted AI pipeline that ingests raw text or EPUBs. It
+            orchestrates LLMs to cast characters and direct emotional delivery, then uses
+            local TTS to generate a fully acted, multi-voice <strong>.m4b</strong> complete
+            with text-to-audio sync markers.
+          </p>
+        </div>
+        <div class="card">
+          <h3>ln-reader <span class="tag consume">The Consumer</span></h3>
+          <p>
+            A custom Android app built specifically to play these enhanced audiobooks.
+            Chapter-relative scrubbing, sleep timers, and an EPUB companion reader that
+            automatically highlights the text in sync with the audio.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="alt">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>What ln-reader does</h2>
+        <p>A focused, offline audiobook player — no accounts, no streaming, no tracking.</p>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <span class="ico">📚</span>
+          <h3>Library</h3>
+          <ul>
+            <li>Import <strong>.m4b</strong> from any SAF source — device storage, Drive, OneDrive, Dropbox…</li>
+            <li>Grid view with embedded cover art, title, author, and total duration.</li>
+            <li>Per-book detail: chapter and image counts, plus Open / View images / Remove.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="ico">▶️</span>
+          <h3>Player</h3>
+          <ul>
+            <li>Foreground media session — background playback from notification &amp; lock screen.</li>
+            <li><strong>Chapter-relative scrubber</strong> showing time-in-chapter and "Chapter N of M".</li>
+            <li>±10 s / ±30 s skips, prev / next chapter, 0.5×–3× pitch-preserving speed.</li>
+            <li>Auto-saves your position every 5 s; resumes within ≈5 s on next open.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="ico">🖼️</span>
+          <h3>Image viewer</h3>
+          <ul>
+            <li>Grid of every image embedded in the m4b.</li>
+            <li>Full-screen pager — pinch to zoom up to 5×, pan, swipe between images.</li>
+            <li>Reachable from the library, the player top bar, or the Images tab.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="ico">😴</span>
+          <h3>Sleep timer</h3>
+          <ul>
+            <li><strong>Time</strong> mode — 5 to 90 min presets; pauses with playback, resumes on play.</li>
+            <li><strong>Chapters</strong> mode — end of current, or +2 / +3 / +5 chapters.</li>
+            <li>Optional 10 s volume fade-out, with Postpone / Dismiss and shake-to-postpone.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="ico">⬇️</span>
+          <h3>Downloads</h3>
+          <ul>
+            <li>Cloud SAF imports are <strong>copied locally</strong> so playback streams from disk.</li>
+            <li>Local imports are referenced in place — no copy.</li>
+            <li>Phase-aware progress: <em>Downloading → Parsing m4b → done</em>; pick any SAF folder.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="ico">📖</span>
+          <h3>EPUB companion + sync</h3>
+          <ul>
+            <li>Built-in WebView reader, reachable from the player or the book's "Read" button.</li>
+            <li>A <strong>sync manifest</strong> ties audio timestamps to EPUB beats &amp; illustrations.</li>
+            <li>Auto-follow: highlights the active beat, scrolls, and turns pages as you listen.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sync matrix -->
+  <section id="sync">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>EPUB + sync, in detail</h2>
+        <p>
+          Each book can carry two optional companions, attached from its detail sheet.
+          What you get depends on what's attached:
+        </p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>EPUB</th><th>Sync</th><th>Result</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>✓</td><td>✓</td>
+              <td>Reader <strong>auto-follows</strong> the audio: highlights the active <code>lnvox-beat</code> span, scrolls to it, and turns pages as playback advances. Scrubber shows tappable image markers.</td>
+            </tr>
+            <tr><td>✓</td><td>✗</td><td>Plain reader, manual paging only.</td></tr>
+            <tr><td>✗</td><td>✓</td><td>Image markers on the scrubber only (no reader).</td></tr>
+            <tr><td>✗</td><td>✗</td><td>Plain audiobook.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="color:var(--text-dim);margin-top:18px;">
+        In auto-follow mode, manually flipping a page pauses following; a <strong>Resume</strong>
+        button re-engages it and jumps to the current beat. Scrubber image markers sit at each
+        manifest image's position within the current chapter — tap one to open the matching
+        embedded m4b image.
+      </p>
+    </div>
+  </section>
+
+  <!-- Requirements & limits -->
+  <section class="alt">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Requirements &amp; honest limits</h2>
+        <p>ln-reader is single-device, offline-first software. Here's exactly what that means.</p>
+      </div>
+      <div class="grid" style="margin-bottom:40px;">
+        <div class="card">
+          <span class="ico">📱</span>
+          <h3>Requirements</h3>
+          <ul>
+            <li>Android 13 or newer (minSdk 33, targetSdk 36).</li>
+            <li>A file manager or cloud app exposing a <code>DocumentsProvider</code> for your <strong>.m4b</strong> files — Drive, OneDrive, the system Files app, and most third-party managers work.</li>
+          </ul>
+        </div>
+      </div>
+      <ul class="limits">
+        <li><strong>Drive folder picking doesn't work</strong> for the download-location setting — Google removed tree-picker support from the Drive app. Single-file import from Drive still works.</li>
+        <li><strong>No cross-device sync.</strong> A SAF-based sync feature was prototyped and removed.</li>
+        <li><strong>No streaming</strong> — cloud books are fully downloaded at import and use local storage until removed.</li>
+        <li><strong>Chapter parsing is Nero <code>chpl</code> only.</strong> QuickTime text-track chapters load but show an empty list.</li>
+        <li>The first embedded image (<code>covr</code>) is the cover; other images appear in the viewer but aren't tied to chapters.</li>
+        <li><strong>Scrubber markers match images by ordinal index</strong> — a marker only appears if the m4b has an image at that index.</li>
+        <li><strong>Reader highlighting needs matching spans</strong> (<code>span.lnvox-beat[data-beat-id]</code>); unmatched beats just don't highlight.</li>
+        <li>The reader uses the EPUB's own CSS on a forced-white page — no dedicated dark reading theme yet.</li>
+        <li><strong>Re-importing the same file creates a duplicate</strong> (UUID-keyed library, no content hashing).</li>
+        <li><strong>No resume for interrupted downloads</strong> — a killed mid-download is cleaned up; re-import.</li>
+        <li><strong>Single-device only.</strong> Uninstalling drops your library and saved positions.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Build -->
+  <section id="build">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Build it yourself</h2>
+        <p>Not on the Play Store yet — build from source.</p>
+      </div>
+      <div class="build-grid">
+        <div>
+          <p style="color:var(--text-dim);">JDK 21 required. From the project root:</p>
+          <div class="code">$ ./gradlew assembleDebug</div>
+          <p style="color:var(--text-dim);margin-top:16px;">
+            The debug APK lands in <code>app/build/outputs/apk/debug/</code>.
+            Install it with <code>adb install</code>.
+          </p>
+        </div>
+        <div>
+          <p style="color:var(--text-dim);">
+            Architecture, design decisions, and tooling quirks live in the project's
+            <a href="https://github.com/vibetuned/ln-reader/blob/main/DESIGN.md">DESIGN.md</a>.
+          </p>
+          <a class="btn btn-ghost" href="https://github.com/vibetuned/ln-reader">Browse the source →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <span>© 2026 vibetuned · Lectures and Narrations</span>
+      <div class="foot-links">
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="https://github.com/vibetuned/ln-reader">GitHub</a>
+        <a href="https://github.com/vibetuned/ln-reader/blob/main/LICENSE">License</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
