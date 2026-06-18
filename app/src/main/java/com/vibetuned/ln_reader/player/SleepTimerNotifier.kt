@@ -49,7 +49,8 @@ class SleepTimerNotifier(private val context: Context) {
             .setAutoCancel(false)
             .setOngoing(false)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setSilent(true)
             .build()
 
         manager.notify(NOTIFICATION_ID, notification)
@@ -60,15 +61,21 @@ class SleepTimerNotifier(private val context: Context) {
     }
 
     private fun ensureChannel() {
-        val existing = manager.getNotificationChannel(CHANNEL_ID)
-        if (existing != null) return
+        // The sleep timer fires while the user is trying to fall asleep, so the notification must
+        // be silent. Earlier builds used IMPORTANCE_DEFAULT, which plays a sound. A channel's
+        // importance is immutable once created, so we delete that legacy channel and use a new id
+        // to guarantee the silent (IMPORTANCE_LOW) behavior even on upgraded installs.
+        manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
+        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         val channel = NotificationChannel(
             CHANNEL_ID,
             "Sleep timer",
-            NotificationManager.IMPORTANCE_DEFAULT
+            NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Alerts when the sleep timer ends and offers to continue listening."
+            description = "Silently notes when the sleep timer ends and offers to continue listening."
             setShowBadge(false)
+            setSound(null, null)
+            enableVibration(false)
         }
         manager.createNotificationChannel(channel)
     }
@@ -88,7 +95,8 @@ class SleepTimerNotifier(private val context: Context) {
     }
 
     companion object {
-        const val CHANNEL_ID = "sleep_timer"
+        const val CHANNEL_ID = "sleep_timer_silent"
+        private const val LEGACY_CHANNEL_ID = "sleep_timer"
         const val NOTIFICATION_ID = 4242
         const val ACTION_POSTPONE = "com.vibetuned.ln_reader.action.SLEEP_TIMER_POSTPONE"
         const val ACTION_DISMISS = "com.vibetuned.ln_reader.action.SLEEP_TIMER_DISMISS"

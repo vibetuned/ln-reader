@@ -13,6 +13,10 @@ class PositionRepository(
     suspend fun get(bookId: String): Long? =
         positionDao.get(bookId)?.positionMs
 
+    /** Book the user most recently had playback in (and that still exists), or null. */
+    suspend fun lastPlayedBookId(): String? =
+        positionDao.mostRecentExistingBookId()
+
     suspend fun save(bookId: String, positionMs: Long) {
         positionDao.upsert(
             PositionEntity(

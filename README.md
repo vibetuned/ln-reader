@@ -95,3 +95,4 @@ JDK 21 required. From the project root:
 The debug APK lands in `app/build/outputs/apk/debug/`. Install with `adb install`.
 
 Architecture, design decisions, and tooling quirks live in [design.md](design.md).
+Per-release notes live in [CHANGELOG.md](CHANGELOG.md).

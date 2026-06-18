@@ -3,6 +3,7 @@ package com.vibetuned.ln_reader.di
 import android.content.Context
 import com.vibetuned.ln_reader.data.db.LnReaderDatabase
 import com.vibetuned.ln_reader.data.prefs.DownloadPreferences
+import com.vibetuned.ln_reader.data.prefs.ViewerPreferences
 import com.vibetuned.ln_reader.data.repo.BookRepository
 import com.vibetuned.ln_reader.data.repo.PositionRepository
 import com.vibetuned.ln_reader.m4b.M4bParser
@@ -21,6 +22,10 @@ class AppContainer(context: Context) {
 
     val downloadPreferences: DownloadPreferences by lazy {
         DownloadPreferences(appContext)
+    }
+
+    val viewerPreferences: ViewerPreferences by lazy {
+        ViewerPreferences(appContext)
     }
 
     val bookRepository: BookRepository by lazy {

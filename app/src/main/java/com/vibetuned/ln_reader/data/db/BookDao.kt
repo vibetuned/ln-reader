@@ -65,6 +65,18 @@ interface PositionDao {
     @Query("SELECT * FROM positions WHERE bookId = :bookId")
     suspend fun get(bookId: String): PositionEntity?
 
+    /**
+     * Book id of the most recently saved position whose book still exists. Used on cold start to
+     * reopen whatever the user was last listening to. The JOIN skips orphaned position rows that
+     * may linger after a book is deleted.
+     */
+    @Query(
+        "SELECT p.bookId FROM positions p " +
+            "INNER JOIN books b ON b.id = p.bookId " +
+            "ORDER BY p.updatedAt DESC LIMIT 1"
+    )
+    suspend fun mostRecentExistingBookId(): String?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(position: PositionEntity)
 

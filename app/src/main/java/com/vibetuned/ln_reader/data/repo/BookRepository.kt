@@ -3,6 +3,7 @@ package com.vibetuned.ln_reader.data.repo
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.core.net.toFile
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
@@ -91,14 +92,18 @@ class BookRepository(
             }
 
             val bookId = UUID.randomUUID().toString()
-            val fileName = fileNameFromUri(uri)
+            // One metadata query for both name and size: for cloud document providers each lookup
+            // is a network round-trip, so fetching both columns at once (instead of two separate
+            // DocumentFile reads) halves the latency before the download can begin.
+            val sourceMeta = queryUriMeta(uri)
+            val fileName = sourceMeta.name
             val cleanup = mutableListOf<() -> Unit>()
             try {
                 // For cloud sources, download the whole file first and parse the local copy.
                 // Parsing has to read most of the file anyway, so a single sequential download
                 // beats a scattered network parse followed by a separate download.
                 val downloadedUri: Uri? = if (isRemoteUri(uri)) {
-                    val total = fileSizeFromUri(uri).takeIf { it > 0 } ?: -1L
+                    val total = sourceMeta.size.takeIf { it > 0 } ?: -1L
                     onProgress(ImportProgress(ImportProgress.Phase.Downloading, 0, total))
                     val targetFolder =
                         downloadPreferences.downloadFolderUri.firstOrNull()?.let { Uri.parse(it) }
@@ -125,7 +130,7 @@ class BookRepository(
                     ?: "Untitled"
 
                 val finalUri = downloadedUri?.toString() ?: uri.toString()
-                val finalSize = downloadedUri?.let { sizeOf(it) } ?: fileSizeFromUri(uri)
+                val finalSize = downloadedUri?.let { sizeOf(it) } ?: sourceMeta.size
 
                 onProgress(ImportProgress(ImportProgress.Phase.Finalizing))
                 val book = BookEntity(
@@ -347,8 +352,26 @@ class BookRepository(
     private fun bookDownloadDir(bookId: String): File =
         File(context.filesDir, "downloads/$bookId")
 
-    private fun fileNameFromUri(uri: Uri): String? =
-        DocumentFile.fromSingleUri(context, uri)?.name
+    private data class UriMeta(val name: String?, val size: Long)
+
+    /**
+     * Fetches display name and size in a single [android.content.ContentResolver] query. For cloud
+     * document providers each metadata lookup is a network round-trip, so reading both columns at
+     * once is markedly faster than two separate [DocumentFile] calls. Returns nulls/0 if the
+     * provider doesn't supply a column or the query fails.
+     */
+    private fun queryUriMeta(uri: Uri): UriMeta = runCatching {
+        val projection = arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)
+        context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+            if (!cursor.moveToFirst()) return@use UriMeta(null, 0L)
+            val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            val sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE)
+            UriMeta(
+                name = nameIdx.takeIf { it >= 0 && !cursor.isNull(it) }?.let(cursor::getString),
+                size = sizeIdx.takeIf { it >= 0 && !cursor.isNull(it) }?.let(cursor::getLong) ?: 0L
+            )
+        }
+    }.getOrNull() ?: UriMeta(null, 0L)
 
     private fun fileSizeFromUri(uri: Uri): Long =
         DocumentFile.fromSingleUri(context, uri)?.length() ?: 0L

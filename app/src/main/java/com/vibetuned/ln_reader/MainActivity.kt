@@ -18,14 +18,20 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.vibetuned.ln_reader.ui.common.appContainer
 import com.vibetuned.ln_reader.ui.navigation.LnReaderNavGraph
+import com.vibetuned.ln_reader.ui.navigation.PlayerRoute
 import com.vibetuned.ln_reader.ui.navigation.TopLevelDestination
 import com.vibetuned.ln_reader.ui.theme.LnReaderTheme
 
@@ -62,6 +68,20 @@ private fun LnReaderApp() {
     val navController = rememberNavController()
     val currentBackStack by navController.currentBackStackEntryAsState()
     val currentDestination = currentBackStack?.destination
+
+    // On a cold start, reopen whatever book the user was last listening to, layered on top of the
+    // Library so Back still returns home. `didRestore` is saved across config changes / process
+    // restore, so we only auto-navigate once per launch — rotating or coming back from another
+    // screen must not yank the user back to the player.
+    val container = appContainer()
+    var didRestore by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (didRestore) return@LaunchedEffect
+        didRestore = true
+        container.positionRepository.lastPlayedBookId()?.let { bookId ->
+            navController.navigate(PlayerRoute.forBook(bookId))
+        }
+    }
 
     Scaffold(
         // Don't let the outer Scaffold add system-bar insets to the content padding — each

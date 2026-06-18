@@ -34,6 +34,7 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -126,7 +127,7 @@ fun PlayerScreen(
                             else Icons.Outlined.Bedtime,
                             contentDescription = "Sleep timer",
                             tint = if (timerActive) MaterialTheme.colorScheme.primary
-                            else androidx.compose.ui.graphics.Color.Unspecified
+                            else LocalContentColor.current
                         )
                     }
                 }

@@ -152,7 +152,11 @@ private fun ImportProgressBanner(
     val phase = progress?.phase
     val total = progress?.totalBytes ?: -1L
     val read = progress?.bytesRead ?: 0L
-    val determinate = phase == com.vibetuned.ln_reader.data.repo.BookRepository.ImportProgress.Phase.Downloading && total > 0
+    // Stay indeterminate until the first bytes actually arrive. Cloud providers can take a while to
+    // open the stream (preparing the file server-side) and emit no progress meanwhile; a
+    // determinate bar pinned at 0% reads as "frozen", whereas a spinning bar says "starting…".
+    val determinate = phase == com.vibetuned.ln_reader.data.repo.BookRepository.ImportProgress.Phase.Downloading &&
+        total > 0 && read > 0
 
     androidx.compose.material3.Surface(
         modifier = modifier,
@@ -185,8 +189,11 @@ private fun phaseLabel(
 ): String = when (phase) {
     com.vibetuned.ln_reader.data.repo.BookRepository.ImportProgress.Phase.Parsing -> "Parsing m4b…"
     com.vibetuned.ln_reader.data.repo.BookRepository.ImportProgress.Phase.Downloading ->
-        if (total > 0) "Downloading: ${formatBytes(read)} / ${formatBytes(total)}"
-        else "Downloading: ${formatBytes(read)}"
+        when {
+            read <= 0L -> "Starting download…"
+            total > 0 -> "Downloading: ${formatBytes(read)} / ${formatBytes(total)}"
+            else -> "Downloading: ${formatBytes(read)}"
+        }
     com.vibetuned.ln_reader.data.repo.BookRepository.ImportProgress.Phase.Finalizing -> "Finalizing…"
     null -> "Importing…"
 }
