@@ -19,11 +19,11 @@
         <span>ln-reader</span>
       </a>
       <div class="nav-links">
-        <a href="#features">Features</a>
+        <a href="#whatsnew">What's new</a>
+        <a href="#features" class="hide-sm">Features</a>
         <a href="#sync" class="hide-sm">EPUB&nbsp;sync</a>
-        <a href="#build" class="hide-sm">Build</a>
         <a href="privacy.html">Privacy</a>
-        <a href="https://github.com/vibetuned/ln-reader">GitHub</a>
+        <a href="https://play.google.com/store/apps/details?id=com.vibetuned.ln_reader">Google&nbsp;Play</a>
       </div>
     </div>
   </nav>
@@ -39,17 +39,61 @@
         in sync with the narration.
       </p>
       <div class="cta-row">
-        <a class="btn btn-primary" href="https://github.com/vibetuned/ln-reader">View on GitHub →</a>
-        <a class="btn btn-ghost" href="#build">Build the app</a>
+        <a class="btn btn-primary btn-play" href="https://play.google.com/store/apps/details?id=com.vibetuned.ln_reader">
+          <svg viewBox="0 0 512 512" aria-hidden="true"><path d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1zM47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0zm425.2 225.6l-58.9-34.1-65.7 64.5 65.7 64.5 60.1-34.1c18-14.3 18-46.5-1.2-60.8zM104.6 499l280.8-161.2-60.1-60.1L104.6 499z"/></svg>
+          Get it on Google Play
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/vibetuned/ln-reader">View on GitHub</a>
       </div>
       <div class="badge-row">
+        <span class="badge">★ Now on Google Play · v1.1</span>
         <span class="badge">Android 13+</span>
         <span class="badge">Kotlin · Jetpack Compose</span>
-        <span class="badge">ExoPlayer / Media3</span>
         <span class="badge">100% on-device</span>
       </div>
     </div>
   </header>
+
+  <!-- What's new -->
+  <section id="whatsnew" class="alt">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="ver-pill">v1.1 · 19 Jun 2026</span>
+        <h2>What's new</h2>
+        <p>A player-experience and maintenance update — now live on Google Play.</p>
+      </div>
+      <div class="grid">
+        <div class="card">
+          <span class="ico">↩️</span>
+          <h3>Resume on launch</h3>
+          <p>Cold-starting the app reopens whatever book you were last listening to, at its saved position. Back still returns home, and rotating a screen won't yank you into the player.</p>
+        </div>
+        <div class="card">
+          <span class="ico">🎛️</span>
+          <h3>Richer notification controls</h3>
+          <p>The media / lock-screen notification now carries skip-back 10 s, skip-forward 30 s, and an end-of-chapter sleep button. The unused previous / next buttons are gone for these single-file books.</p>
+        </div>
+        <div class="card">
+          <span class="ico">🤫</span>
+          <h3>Silent sleep-timer alert</h3>
+          <p>The end-of-timer notification now uses a low-importance channel, so it no longer plays a sound while you're drifting off. Postpone, Dismiss, and shake-to-postpone are unchanged.</p>
+        </div>
+        <div class="card">
+          <span class="ico">☁️</span>
+          <h3>Smoother cloud imports</h3>
+          <p>While a cloud provider prepares a file, you now see a clear <em>"Starting download…"</em> indicator instead of a bar frozen at 0 %. Imports also start faster — one metadata round-trip instead of two.</p>
+        </div>
+        <div class="card">
+          <span class="ico">🛡️</span>
+          <h3>Android 15 compatibility</h3>
+          <p>Dropped a legacy UI dependency that called APIs deprecated in Android 15, clearing the Play Console warning. Plus the fixed sleep-timer toolbar icon and general polish.</p>
+        </div>
+      </div>
+      <p class="changelog-foot">
+        See the <a href="https://github.com/vibetuned/ln-reader/blob/main/CHANGELOG.md">full changelog</a> for every change, including the v1.0 release notes.
+      </p>
+    </div>
+  </section>
 
   <!-- Ecosystem -->
   <section id="ecosystem">
@@ -71,6 +115,7 @@
             local TTS to generate a fully acted, multi-voice <strong>.m4b</strong> complete
             with text-to-audio sync markers.
           </p>
+          <a class="card-link" href="https://github.com/vibetuned/ln-vox">The Python pipeline on GitHub →</a>
         </div>
         <div class="card">
           <h3>ln-reader <span class="tag consume">The Consumer</span></h3>
@@ -79,6 +124,7 @@
             Chapter-relative scrubbing, sleep timers, and an EPUB companion reader that
             automatically highlights the text in sync with the audio.
           </p>
+          <a class="card-link" href="https://play.google.com/store/apps/details?id=com.vibetuned.ln_reader">Get it on Google Play →</a>
         </div>
       </div>
     </div>
@@ -190,7 +236,7 @@
   <section class="alt">
     <div class="wrap">
       <div class="section-head">
-        <h2>Requirements &amp; honest limits</h2>
+        <h2>Requirements &amp; Limitations</h2>
         <p>ln-reader is single-device, offline-first software. Here's exactly what that means.</p>
       </div>
       <div class="grid" style="margin-bottom:40px;">
@@ -224,7 +270,7 @@
     <div class="wrap">
       <div class="section-head">
         <h2>Build it yourself</h2>
-        <p>Not on the Play Store yet — build from source.</p>
+        <p>Prefer source over the Play Store? Build the debug APK in one command.</p>
       </div>
       <div class="build-grid">
         <div>

@@ -24,6 +24,9 @@ android {
 
     buildTypes {
         release {
+            ndk{
+                debugSymbolLevel = "FULL"
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

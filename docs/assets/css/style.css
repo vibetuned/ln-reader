@@ -126,6 +126,33 @@ a:hover { text-decoration: underline; }
 }
 .btn-ghost { color: var(--text); border-color: var(--border); background: var(--surface); }
 .btn-ghost:hover { background: var(--surface-2); }
+.btn svg { width: 18px; height: 18px; flex-shrink: 0; fill: currentColor; }
+.btn-play { font-weight: 700; }
+
+/* card link */
+.card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* version pill in a section head */
+.ver-pill {
+  display: inline-block;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #120b22;
+  background: linear-gradient(95deg, var(--purple), var(--teal));
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+}
+.changelog-foot { text-align: center; margin-top: 36px; color: var(--text-dim); }
 
 .badge-row {
   display: flex;
