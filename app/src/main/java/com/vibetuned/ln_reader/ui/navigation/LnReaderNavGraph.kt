@@ -14,8 +14,9 @@ import com.vibetuned.ln_reader.ui.timer.TimerScreen
 import com.vibetuned.ln_reader.ui.viewer.ViewerScreen
 
 object PlayerRoute {
-    const val PATTERN = "player?bookId={bookId}"
-    fun forBook(bookId: String) = "player?bookId=$bookId"
+    const val PATTERN = "player?bookId={bookId}&autoPlay={autoPlay}"
+    fun forBook(bookId: String, autoPlay: Boolean = false) =
+        "player?bookId=$bookId&autoPlay=$autoPlay"
 }
 
 object ViewerRoute {
@@ -40,7 +41,7 @@ fun LnReaderNavGraph(
         composable(TopLevelDestination.Library.route) {
             LibraryScreen(
                 onPlayBook = { bookId ->
-                    navController.navigate(PlayerRoute.forBook(bookId))
+                    navController.navigate(PlayerRoute.forBook(bookId, autoPlay = true))
                 },
                 onViewImages = { bookId ->
                     navController.navigate(ViewerRoute.forBook(bookId))
@@ -57,11 +58,16 @@ fun LnReaderNavGraph(
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
+                },
+                navArgument("autoPlay") {
+                    type = NavType.BoolType
+                    defaultValue = false
                 }
             )
         ) { backStackEntry ->
             PlayerScreen(
                 bookId = backStackEntry.arguments?.getString("bookId"),
+                autoPlay = backStackEntry.arguments?.getBoolean("autoPlay") ?: false,
                 onBack = { navController.popBackStack() },
                 onViewImages = { bookId ->
                     navController.navigate(ViewerRoute.forBook(bookId))

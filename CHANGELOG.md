@@ -1,5 +1,45 @@
 # Changelog
 
+## v1.2 — 2026-06-29
+
+Adds a mini-player, per-book progress in the library, and a tappable chapter
+selector.
+
+### Play Store release notes (≤ 500 chars)
+
+```
+• New mini-player bar on every screen: play/pause, 10s/30s skips, and a Read button for EPUB books. Tap it to open the full player.
+• Library covers now show how far you are through each book.
+• Tap a book in the Library to start playing instantly.
+• The chapter name and number are now one tappable chapter selector.
+• More reliable resume — your last book reopens even after Android closes the app in the background.
+```
+
+### Player
+- **Mini-player** — a compact playback bar now sits just above the bottom
+  navigation on every screen except the full player. It shows the cover, title
+  and author, a thin progress line, and skip-back 10 s / play-pause /
+  skip-forward 30 s. Tap the bar to open the full player. When the current book
+  has an attached EPUB, a **Read** button opens the reader (hidden while you're
+  already in the reader). It appears whenever a book is loaded — playing or
+  paused — and disappears when nothing is loaded.
+- **Combined chapter selector** — the current chapter title and "Chapter N of
+  M" are now stacked into a single control under the book title; tap it to open
+  the chapter list. The standalone "Chapter N of M" line above the scrubber has
+  been folded into it.
+- **Resume on launch now survives memory eviction** — reopening your last book
+  also works after Android shuts the app down in the background to reclaim
+  memory, not only on a clean cold start. It reopens **paused** at your saved
+  position, so launching never starts audio on its own — press play, or use the
+  mini-player, to continue.
+
+### Library
+- **Per-book progress bars** — every cover now shows a thin progress bar of how
+  far through the book you are, between the cover and the title. It updates live
+  as you listen.
+- **Tap to play** — tapping a book in the library now starts playback
+  immediately; it previously opened the player paused.
+
 ## v1.1 — 2026-06-19
 
 Player-experience and maintenance update.

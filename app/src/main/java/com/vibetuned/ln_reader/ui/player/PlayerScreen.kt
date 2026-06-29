@@ -1,5 +1,6 @@
 package com.vibetuned.ln_reader.ui.player
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Forward30
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Photo
@@ -48,6 +50,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,6 +67,7 @@ import java.util.concurrent.TimeUnit
 @Composable
 fun PlayerScreen(
     bookId: String? = null,
+    autoPlay: Boolean = false,
     onBack: () -> Unit = {},
     onViewImages: (String) -> Unit = {},
     onOpenReader: (String) -> Unit = {}
@@ -85,7 +89,7 @@ fun PlayerScreen(
     var markerImageIndex by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(bookId) {
-        if (bookId != null) viewModel.open(bookId)
+        if (bookId != null) viewModel.open(bookId, autoPlay)
     }
 
     Scaffold(
@@ -147,6 +151,7 @@ fun PlayerScreen(
                     onSkipForward = viewModel::skipForward,
                     onPrevChapter = viewModel::prevChapter,
                     onNextChapter = viewModel::nextChapter,
+                    onOpenChapters = { showChapters = true },
                     onMarkerClick = { marker -> markerImageIndex = marker.imageIndex }
                 )
             }
@@ -229,6 +234,7 @@ private fun PlayerContent(
     onSkipForward: () -> Unit,
     onPrevChapter: () -> Unit,
     onNextChapter: () -> Unit,
+    onOpenChapters: () -> Unit,
     onMarkerClick: (ImageMarker) -> Unit
 ) {
     val book = state.book ?: return
@@ -260,25 +266,16 @@ private fun PlayerContent(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
-        state.currentChapterTitle?.let { title ->
-            Text(
-                title,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+        if (state.chapters.isNotEmpty()) {
+            ChapterSelector(
+                chapterTitle = state.currentChapterTitle,
+                chapterNumberLabel =
+                    "Chapter ${state.currentChapterIndex.coerceAtLeast(0) + 1} of ${state.chapters.size}",
+                onClick = onOpenChapters,
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
         Spacer(Modifier.weight(1f))
-        if (state.chapters.isNotEmpty()) {
-            Text(
-                "Chapter ${state.currentChapterIndex.coerceAtLeast(0) + 1} of ${state.chapters.size}",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(Modifier.height(4.dp))
-        }
         Scrubber(
             positionInChapterMs = state.positionInChapterMs,
             chapterDurationMs = state.currentChapterDurationMs,
@@ -299,6 +296,50 @@ private fun PlayerContent(
             onNextChapter = onNextChapter
         )
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+/**
+ * Stacked, tappable chapter readout: chapter name over "Chapter X of Y" with a dropdown affordance.
+ * Tapping opens the chapter-selection sheet via [onClick].
+ */
+@Composable
+private fun ChapterSelector(
+    chapterTitle: String?,
+    chapterNumberLabel: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (chapterTitle != null) {
+            Text(
+                chapterTitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                chapterNumberLabel,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Icon(
+                imageVector = Icons.Filled.ArrowDropDown,
+                contentDescription = "Select chapter",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
+        }
     }
 }
 

@@ -3,12 +3,17 @@ package com.vibetuned.ln_reader.data.repo
 import com.vibetuned.ln_reader.data.db.PositionDao
 import com.vibetuned.ln_reader.data.db.PositionEntity
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class PositionRepository(
     private val positionDao: PositionDao
 ) {
     fun observePositionMs(bookId: String): Flow<Long?> =
         positionDao.observePositionMs(bookId)
+
+    /** bookId -> saved position (ms), for every book that has one. */
+    fun observeAllPositions(): Flow<Map<String, Long>> =
+        positionDao.observeAll().map { positions -> positions.associate { it.bookId to it.positionMs } }
 
     suspend fun get(bookId: String): Long? =
         positionDao.get(bookId)?.positionMs

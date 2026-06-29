@@ -59,7 +59,7 @@ fun LibraryScreen(
 ) {
     val container = appContainer()
     val viewModel: LibraryViewModel = viewModel(
-        factory = LibraryViewModel.factory(container.bookRepository)
+        factory = LibraryViewModel.factory(container.bookRepository, container.positionRepository)
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -99,6 +99,7 @@ fun LibraryScreen(
                 state.books.isEmpty() -> EmptyLibrary()
                 else -> BookGrid(
                     books = state.books,
+                    progress = state.progress,
                     onBookClick = { selectedBook = it }
                 )
             }
@@ -237,6 +238,7 @@ private fun EmptyLibrary() {
 @Composable
 private fun BookGrid(
     books: List<Book>,
+    progress: Map<String, Float>,
     onBookClick: (Book) -> Unit
 ) {
     LazyVerticalGrid(
@@ -247,13 +249,17 @@ private fun BookGrid(
         modifier = Modifier.fillMaxSize()
     ) {
         items(books, key = { it.id }) { book ->
-            BookCard(book = book, onClick = { onBookClick(book) })
+            BookCard(
+                book = book,
+                progress = progress[book.id] ?: 0f,
+                onClick = { onBookClick(book) }
+            )
         }
     }
 }
 
 @Composable
-private fun BookCard(book: Book, onClick: () -> Unit) {
+private fun BookCard(book: Book, progress: Float, onClick: () -> Unit) {
     ElevatedCard(onClick = onClick) {
         Column {
             Box(
@@ -276,6 +282,13 @@ private fun BookCard(book: Book, onClick: () -> Unit) {
                     )
                 }
             }
+            // Playback progress through the book, sitting flush between the cover and the title.
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+            )
             Column(modifier = Modifier.padding(12.dp)) {
                 Text(
                     book.title,

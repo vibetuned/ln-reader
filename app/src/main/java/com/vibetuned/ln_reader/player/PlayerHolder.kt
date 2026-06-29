@@ -48,10 +48,11 @@ class PlayerHolder(private val context: Context) {
     }
 
     /**
-     * Sets [book] as the current item, seeks to [startPositionMs], and starts buffering.
-     * Does NOT auto-play — caller decides via [MediaController.play].
+     * Sets [book] as the current item, seeks to [startPositionMs], and starts buffering. When
+     * [playWhenReady] is true, playback begins as soon as the item is buffered (used to resume on
+     * app restart and when the user taps a book to play); otherwise the item loads paused.
      */
-    fun loadBook(book: Book, startPositionMs: Long) {
+    fun loadBook(book: Book, startPositionMs: Long, playWhenReady: Boolean = false) {
         val controller = _controller.value ?: return
         val metadataBuilder = MediaMetadata.Builder()
             .setTitle(book.title)
@@ -65,5 +66,6 @@ class PlayerHolder(private val context: Context) {
             .build()
         controller.setMediaItem(mediaItem, startPositionMs)
         controller.prepare()
+        if (playWhenReady) controller.play()
     }
 }

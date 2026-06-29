@@ -34,8 +34,10 @@ class PlayerViewModel(
     private val _state = MutableStateFlow(PlayerUiState())
     val state: StateFlow<PlayerUiState> = _state.asStateFlow()
 
-    /** Book the user asked to play but the controller wasn't ready yet. */
-    private var pendingLoad: Pair<Book, Long>? = null
+    /** Book the user asked to open before the controller was ready. */
+    private var pendingLoad: PendingLoad? = null
+
+    private data class PendingLoad(val book: Book, val positionMs: Long, val autoPlay: Boolean)
 
     init {
         playerHolder.connect()
@@ -51,8 +53,8 @@ class PlayerViewModel(
                         playbackSpeed = controller.playbackParameters.speed.takeIf { s -> s > 0f } ?: 1.0f
                     )
                 }
-                pendingLoad?.let { (book, pos) ->
-                    playerHolder.loadBook(book, pos)
+                pendingLoad?.let { pending ->
+                    playerHolder.loadBook(pending.book, pending.positionMs, playWhenReady = pending.autoPlay)
                     pendingLoad = null
                 }
                 // If the controller is already playing a book we don't yet know about,
@@ -76,7 +78,12 @@ class PlayerViewModel(
         }
     }
 
-    fun open(bookId: String) {
+    /**
+     * Load [bookId] into the player. When [autoPlay] is true the book starts playing once ready
+     * (used to resume on app restart and when the user taps a book to play). A book that's already
+     * loaded is left untouched, so rotating or reopening the screen never overrides a manual pause.
+     */
+    fun open(bookId: String, autoPlay: Boolean = false) {
         if (_state.value.book?.id == bookId) return
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, error = null) }
@@ -100,9 +107,9 @@ class PlayerViewModel(
             }
             val controller = playerHolder.controller.value
             if (controller == null) {
-                pendingLoad = detail.book to startPos
+                pendingLoad = PendingLoad(detail.book, startPos, autoPlay)
             } else if (controller.currentMediaItem?.mediaId != bookId) {
-                playerHolder.loadBook(detail.book, startPos)
+                playerHolder.loadBook(detail.book, startPos, playWhenReady = autoPlay)
             }
         }
     }

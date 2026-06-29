@@ -62,6 +62,10 @@ interface PositionDao {
     @Query("SELECT positionMs FROM positions WHERE bookId = :bookId")
     fun observePositionMs(bookId: String): Flow<Long?>
 
+    /** Every saved position. Used to show per-book progress bars across the library. */
+    @Query("SELECT * FROM positions")
+    fun observeAll(): Flow<List<PositionEntity>>
+
     @Query("SELECT * FROM positions WHERE bookId = :bookId")
     suspend fun get(bookId: String): PositionEntity?
 

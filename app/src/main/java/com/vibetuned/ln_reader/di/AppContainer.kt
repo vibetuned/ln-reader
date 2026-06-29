@@ -14,6 +14,14 @@ class AppContainer(context: Context) {
 
     private val appContext = context.applicationContext
 
+    /**
+     * Whether this process has already auto-reopened the last-played book. Lives on the
+     * process-scoped container so the restore fires once per fresh process — on a cold start and
+     * after Android kills the backgrounded process — but not again across config changes (rotation)
+     * within the same process. Read/written only from the main thread.
+     */
+    var lastBookRestoreHandled = false
+
     val database: LnReaderDatabase by lazy {
         LnReaderDatabase.build(appContext)
     }
