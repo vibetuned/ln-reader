@@ -29,6 +29,11 @@ object ReaderRoute {
     fun forBook(bookId: String) = "reader?bookId=$bookId"
 }
 
+object CollectionRoute {
+    const val PATTERN = "collection?collectionId={collectionId}"
+    fun forCollection(collectionId: String) = "collection?collectionId=$collectionId"
+}
+
 @Composable
 fun LnReaderNavGraph(
     navController: NavHostController,
@@ -48,7 +53,34 @@ fun LnReaderNavGraph(
                 },
                 onReadBook = { bookId ->
                     navController.navigate(ReaderRoute.forBook(bookId))
+                },
+                onOpenCollection = { collectionId ->
+                    navController.navigate(CollectionRoute.forCollection(collectionId))
                 }
+            )
+        }
+        composable(
+            route = CollectionRoute.PATTERN,
+            arguments = listOf(
+                navArgument("collectionId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            LibraryScreen(
+                collectionId = backStackEntry.arguments?.getString("collectionId"),
+                onPlayBook = { bookId ->
+                    navController.navigate(PlayerRoute.forBook(bookId, autoPlay = true))
+                },
+                onViewImages = { bookId ->
+                    navController.navigate(ViewerRoute.forBook(bookId))
+                },
+                onReadBook = { bookId ->
+                    navController.navigate(ReaderRoute.forBook(bookId))
+                },
+                onBack = { navController.popBackStack() }
             )
         }
         composable(

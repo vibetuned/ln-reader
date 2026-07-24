@@ -52,6 +52,14 @@ class BookRepository(
     fun books(): Flow<List<Book>> =
         bookDao.observeAll().map { list -> list.map { it.toDomain() } }
 
+    /** Books at the top of the library — not inside any collection. */
+    fun topLevelBooks(): Flow<List<Book>> =
+        bookDao.observeTopLevel().map { list -> list.map { it.toDomain() } }
+
+    /** Books inside a given collection. */
+    fun booksInCollection(collectionId: String): Flow<List<Book>> =
+        bookDao.observeByCollection(collectionId).map { list -> list.map { it.toDomain() } }
+
     suspend fun getDetail(bookId: String): BookDetail? = withContext(Dispatchers.IO) {
         val book = bookDao.byId(bookId)?.toDomain() ?: return@withContext null
         val chapters = chapterDao.forBook(bookId).map { it.toDomain() }
@@ -81,6 +89,7 @@ class BookRepository(
      */
     suspend fun import(
         uri: Uri,
+        collectionId: String? = null,
         onProgress: (ImportProgress) -> Unit = {}
     ): Result<Book> = withContext(Dispatchers.IO) {
         runCatching {
@@ -143,7 +152,8 @@ class BookRepository(
                     coverPath = coverPath,
                     importedAt = System.currentTimeMillis(),
                     fileSize = finalSize,
-                    isDownloaded = downloadedUri != null
+                    isDownloaded = downloadedUri != null,
+                    collectionId = collectionId
                 )
                 val chapters = parsed.chapters.mapIndexed { index, ch ->
                     ChapterEntity(

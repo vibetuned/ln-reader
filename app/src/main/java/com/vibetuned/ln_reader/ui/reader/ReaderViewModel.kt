@@ -9,6 +9,7 @@ import androidx.media3.session.MediaController
 import com.vibetuned.ln_reader.companion.EpubReader
 import com.vibetuned.ln_reader.companion.SyncManifest
 import com.vibetuned.ln_reader.companion.SyncManifestParser
+import com.vibetuned.ln_reader.data.prefs.ReaderPreferences
 import com.vibetuned.ln_reader.data.repo.BookRepository
 import com.vibetuned.ln_reader.player.PlayerHolder
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +26,8 @@ import java.io.File
 class ReaderViewModel(
     private val appContext: Context,
     private val playerHolder: PlayerHolder,
-    private val bookRepository: BookRepository
+    private val bookRepository: BookRepository,
+    private val readerPreferences: ReaderPreferences
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ReaderUiState())
@@ -37,6 +39,12 @@ class ReaderViewModel(
 
     init {
         playerHolder.connect()
+        viewModelScope.launch {
+            readerPreferences.darkMode.collect { dark -> _state.update { it.copy(isDark = dark) } }
+        }
+        viewModelScope.launch {
+            readerPreferences.textZoom.collect { zoom -> _state.update { it.copy(textZoom = zoom) } }
+        }
         viewModelScope.launch {
             playerHolder.controller.collectLatest { controller ->
                 if (controller == null) {
@@ -145,6 +153,22 @@ class ReaderViewModel(
         }
     }
 
+    fun toggleDarkMode() {
+        viewModelScope.launch { readerPreferences.setDarkMode(!_state.value.isDark) }
+    }
+
+    fun zoomIn() {
+        viewModelScope.launch {
+            readerPreferences.setTextZoom(_state.value.textZoom + ReaderPreferences.ZOOM_STEP)
+        }
+    }
+
+    fun zoomOut() {
+        viewModelScope.launch {
+            readerPreferences.setTextZoom(_state.value.textZoom - ReaderPreferences.ZOOM_STEP)
+        }
+    }
+
     private fun spineIndexForXhtml(xhtml: String): Int {
         val exact = spinePaths.indexOfFirst { it == xhtml }
         if (exact >= 0) return exact
@@ -158,9 +182,12 @@ class ReaderViewModel(
         fun factory(
             appContext: Context,
             playerHolder: PlayerHolder,
-            bookRepository: BookRepository
+            bookRepository: BookRepository,
+            readerPreferences: ReaderPreferences
         ) = viewModelFactory {
-            initializer { ReaderViewModel(appContext, playerHolder, bookRepository) }
+            initializer {
+                ReaderViewModel(appContext, playerHolder, bookRepository, readerPreferences)
+            }
         }
     }
 }

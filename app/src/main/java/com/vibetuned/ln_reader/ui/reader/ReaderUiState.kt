@@ -16,5 +16,8 @@ data class ReaderUiState(
     val hasSync: Boolean = false,
     val autoFollow: Boolean = true,
     /** True when the player is actively playing the book that's open in the reader. */
-    val isAudioPlaying: Boolean = false
+    val isAudioPlaying: Boolean = false,
+    /** Reader appearance (persisted app-wide). */
+    val isDark: Boolean = false,
+    val textZoom: Int = 100
 )

@@ -99,7 +99,7 @@ class SleepTimerController(
             val remaining = totalMs - elapsedMs
             if (remaining <= 0) break
             _state.value = SleepTimerState.TimeRemaining(remaining, totalMs)
-            applyFade(controller, remaining, config.fadeOut)
+            applyFade(controller, remaining, config.fadeOutSeconds)
             delay(TICK_MS)
         }
         finishAndExpire(controller, config)
@@ -131,7 +131,7 @@ class SleepTimerController(
                 msUntilStop = remaining,
                 chaptersRemaining = chaptersLeft
             )
-            applyFade(controller, remaining, configForPostpone.fadeOut)
+            applyFade(controller, remaining, configForPostpone.fadeOutSeconds)
             delay(TICK_MS)
         }
         finishAndExpire(controller, configForPostpone)
@@ -147,14 +147,15 @@ class SleepTimerController(
         shakeDetector.start()
     }
 
-    private fun applyFade(controller: MediaController, remaining: Long, fadeOut: Boolean) {
-        if (!fadeOut) {
+    private fun applyFade(controller: MediaController, remaining: Long, fadeOutSeconds: Int) {
+        if (fadeOutSeconds <= 0) {
             controller.volume = 1f
             return
         }
+        val fadeMs = fadeOutSeconds * 1000L
         controller.volume =
-            if (remaining >= FADE_OUT_MS) 1f
-            else (remaining.toFloat() / FADE_OUT_MS.toFloat()).coerceIn(0f, 1f)
+            if (remaining >= fadeMs) 1f
+            else (remaining.toFloat() / fadeMs.toFloat()).coerceIn(0f, 1f)
     }
 
     private fun currentChapterIndex(chapters: List<Chapter>, positionMs: Long): Int {
@@ -167,6 +168,5 @@ class SleepTimerController(
 
     companion object {
         private const val TICK_MS = 250L
-        private const val FADE_OUT_MS = 10_000L
     }
 }

@@ -12,9 +12,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BookEntity::class,
         ChapterEntity::class,
         PositionEntity::class,
-        EmbeddedImageEntity::class
+        EmbeddedImageEntity::class,
+        CollectionEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class LnReaderDatabase : RoomDatabase() {
@@ -22,6 +23,7 @@ abstract class LnReaderDatabase : RoomDatabase() {
     abstract fun chapterDao(): ChapterDao
     abstract fun embeddedImageDao(): EmbeddedImageDao
     abstract fun positionDao(): PositionDao
+    abstract fun collectionDao(): CollectionDao
 
     companion object {
         private val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -43,13 +45,25 @@ abstract class LnReaderDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS collections (" +
+                        "id TEXT NOT NULL PRIMARY KEY, " +
+                        "name TEXT NOT NULL, " +
+                        "createdAt INTEGER NOT NULL)"
+                )
+                db.execSQL("ALTER TABLE books ADD COLUMN collectionId TEXT")
+            }
+        }
+
         fun build(context: Context): LnReaderDatabase =
             Room.databaseBuilder(
                 context.applicationContext,
                 LnReaderDatabase::class.java,
                 "ln-reader.db"
             )
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
     }

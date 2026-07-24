@@ -67,7 +67,7 @@ fun SleepTimerSheet(
                     viewModel.dismissExpired()
                     onDismiss()
                 },
-                onFadeOutChanged = viewModel::setFadeOut
+                onFadeOutSecondsChanged = viewModel::setFadeOutSeconds
             )
         }
     }

@@ -5,7 +5,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.vibetuned.ln_reader.data.model.Book
+import com.vibetuned.ln_reader.data.prefs.LibraryPreferences
+import com.vibetuned.ln_reader.data.prefs.LibrarySort
+import com.vibetuned.ln_reader.data.prefs.SortDirection
+import com.vibetuned.ln_reader.data.prefs.SortField
 import com.vibetuned.ln_reader.data.repo.BookRepository
+import com.vibetuned.ln_reader.data.repo.CollectionRepository
 import com.vibetuned.ln_reader.data.repo.PositionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,27 +20,74 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * Backs the library grid. When [collectionId] is null it shows the top of the library (collections
+ * + loose books); when set it shows the books inside that one collection.
+ */
 class LibraryViewModel(
+    private val collectionId: String?,
     private val bookRepository: BookRepository,
-    private val positionRepository: PositionRepository
+    private val positionRepository: PositionRepository,
+    private val collectionRepository: CollectionRepository,
+    private val libraryPreferences: LibraryPreferences
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(LibraryUiState())
     val state: StateFlow<LibraryUiState> = _state.asStateFlow()
 
     init {
+        // Mirror the persisted sort into UI state so the menu shows the current field + direction.
         viewModelScope.launch {
-            combine(
-                bookRepository.books(),
-                positionRepository.observeAllPositions()
-            ) { books, positions ->
-                books to books.associate { book ->
-                    book.id to progressFraction(positions[book.id], book.durationMs)
-                }
-            }.collect { (books, progress) ->
-                _state.update { it.copy(books = books, progress = progress, isLoading = false) }
+            libraryPreferences.sort.collect { sort ->
+                _state.update { it.copy(sortField = sort.field, sortDirection = sort.direction) }
             }
         }
+        if (collectionId == null) {
+            viewModelScope.launch {
+                combine(
+                    collectionRepository.collections(),
+                    bookRepository.topLevelBooks(),
+                    positionRepository.observeAllPositions(),
+                    libraryPreferences.sort
+                ) { collections, books, positions, sort ->
+                    buildList<LibraryEntry> {
+                        collections.forEach { add(LibraryEntry.CollectionEntry(it)) }
+                        sortBooks(books, sort).forEach {
+                            add(LibraryEntry.BookEntry(it, progressFraction(positions[it.id], it.durationMs)))
+                        }
+                    }
+                }.collect { entries ->
+                    _state.update { it.copy(entries = entries, isLoading = false) }
+                }
+            }
+        } else {
+            viewModelScope.launch {
+                combine(
+                    bookRepository.booksInCollection(collectionId),
+                    positionRepository.observeAllPositions(),
+                    libraryPreferences.sort
+                ) { books, positions, sort ->
+                    sortBooks(books, sort).map {
+                        LibraryEntry.BookEntry(it, progressFraction(positions[it.id], it.durationMs))
+                    }
+                }.collect { entries ->
+                    _state.update { it.copy(entries = entries, isLoading = false) }
+                }
+            }
+            viewModelScope.launch {
+                collectionRepository.collection(collectionId).collect { collection ->
+                    _state.update { it.copy(collectionName = collection?.name) }
+                }
+            }
+        }
+    }
+
+    private fun sortBooks(books: List<Book>, sort: LibrarySort): List<Book> {
+        val ascending = when (sort.field) {
+            SortField.Name -> books.sortedBy { it.title.lowercase() }
+            SortField.DateAdded -> books.sortedBy { it.importedAt }
+        }
+        return if (sort.direction == SortDirection.Desc) ascending.reversed() else ascending
     }
 
     private fun progressFraction(positionMs: Long?, durationMs: Long): Float {
@@ -42,10 +95,14 @@ class LibraryViewModel(
         return (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
     }
 
+    fun setSort(field: SortField, direction: SortDirection) {
+        viewModelScope.launch { libraryPreferences.setSort(field, direction) }
+    }
+
     fun import(uri: Uri) {
         viewModelScope.launch {
             _state.update { it.copy(isImporting = true, importProgress = null, error = null) }
-            val result = bookRepository.import(uri) { progress ->
+            val result = bookRepository.import(uri, collectionId = collectionId) { progress ->
                 _state.update { it.copy(importProgress = progress) }
             }
             _state.update { current ->
@@ -56,6 +113,29 @@ class LibraryViewModel(
                         ?: result.exceptionOrNull()?.javaClass?.simpleName?.let { "Import failed: $it" }
                 )
             }
+        }
+    }
+
+    fun createCollection(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        viewModelScope.launch { collectionRepository.create(trimmed) }
+    }
+
+    /**
+     * Delete the collection currently open. When [deleteBooks] is true its books are removed from
+     * the library (files and cached data cleaned) first; otherwise they move back to the top level.
+     * Runs on this VM's scope, which stays alive until the screen navigates away in response to
+     * [LibraryUiState.collectionDeleted].
+     */
+    fun deleteCollection(deleteBooks: Boolean) {
+        val id = collectionId ?: return
+        viewModelScope.launch {
+            if (deleteBooks) {
+                collectionRepository.bookIdsIn(id).forEach { bookRepository.delete(it) }
+            }
+            collectionRepository.delete(id)
+            _state.update { it.copy(collectionDeleted = true) }
         }
     }
 
@@ -71,10 +151,21 @@ class LibraryViewModel(
 
     companion object {
         fun factory(
+            collectionId: String?,
             bookRepository: BookRepository,
-            positionRepository: PositionRepository
+            positionRepository: PositionRepository,
+            collectionRepository: CollectionRepository,
+            libraryPreferences: LibraryPreferences
         ) = viewModelFactory {
-            initializer { LibraryViewModel(bookRepository, positionRepository) }
+            initializer {
+                LibraryViewModel(
+                    collectionId,
+                    bookRepository,
+                    positionRepository,
+                    collectionRepository,
+                    libraryPreferences
+                )
+            }
         }
     }
 }

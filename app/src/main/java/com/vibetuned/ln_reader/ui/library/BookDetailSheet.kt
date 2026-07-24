@@ -10,9 +10,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material3.AlertDialog
@@ -36,9 +40,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.vibetuned.ln_reader.data.model.Book
+import com.vibetuned.ln_reader.data.model.Collection
 import com.vibetuned.ln_reader.ui.common.appContainer
 import kotlinx.coroutines.launch
 
@@ -57,7 +63,11 @@ fun BookDetailSheet(
     val scope = rememberCoroutineScope()
     val detail by container.bookRepository.bookDetail(book.id)
         .collectAsStateWithLifecycle(initialValue = null)
+    val collections by container.collectionRepository.collections()
+        .collectAsStateWithLifecycle(initialValue = emptyList())
     var confirmDelete by remember { mutableStateOf(false) }
+    var showCollectionPicker by remember { mutableStateOf(false) }
+    var showNewCollectionName by remember { mutableStateOf(false) }
 
     // Use the live book (reflects companion changes) and fall back to the snapshot.
     val liveBook = detail?.book ?: book
@@ -153,6 +163,31 @@ fun BookDetailSheet(
                 Text("View images", style = MaterialTheme.typography.labelLarge)
             }
             Spacer(Modifier.height(8.dp))
+            if (liveBook.collectionId == null) {
+                OutlinedButton(
+                    onClick = { showCollectionPicker = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Outlined.CreateNewFolder, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Add to collection", style = MaterialTheme.typography.labelLarge)
+                }
+            } else {
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            container.collectionRepository.removeBook(book.id)
+                            onDismiss()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Outlined.Folder, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Remove from collection", style = MaterialTheme.typography.labelLarge)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = { confirmDelete = true },
                 modifier = Modifier.fillMaxWidth()
@@ -186,6 +221,83 @@ fun BookDetailSheet(
             }
         )
     }
+
+    if (showCollectionPicker) {
+        CollectionPickerDialog(
+            collections = collections,
+            onDismiss = { showCollectionPicker = false },
+            onPick = { collectionId ->
+                showCollectionPicker = false
+                scope.launch {
+                    container.collectionRepository.addBook(book.id, collectionId)
+                    onDismiss()
+                }
+            },
+            onNewCollection = {
+                showCollectionPicker = false
+                showNewCollectionName = true
+            }
+        )
+    }
+
+    if (showNewCollectionName) {
+        NewCollectionDialog(
+            onDismiss = { showNewCollectionName = false },
+            onCreate = { name ->
+                showNewCollectionName = false
+                scope.launch {
+                    val collectionId = container.collectionRepository.create(name)
+                    container.collectionRepository.addBook(book.id, collectionId)
+                    onDismiss()
+                }
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CollectionPickerDialog(
+    collections: List<Collection>,
+    onDismiss: () -> Unit,
+    onPick: (String) -> Unit,
+    onNewCollection: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add to collection") },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                if (collections.isEmpty()) {
+                    Text(
+                        "No collections yet.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
+                collections.forEach { collection ->
+                    TextButton(
+                        onClick = { onPick(collection.id) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            collection.name,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = TextAlign.Start
+                        )
+                    }
+                }
+                TextButton(onClick = onNewCollection, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Outlined.CreateNewFolder, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("New collection…", modifier = Modifier.weight(1f), textAlign = TextAlign.Start)
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable

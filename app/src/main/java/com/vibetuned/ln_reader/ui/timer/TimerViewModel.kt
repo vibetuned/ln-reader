@@ -77,13 +77,13 @@ class TimerViewModel(
     }
 
     fun startTime(minutes: Int): Boolean =
-        sleepTimer.start(SleepTimerConfig.TimeBased(minutes * 60_000L, _state.value.fadeOut))
+        sleepTimer.start(SleepTimerConfig.TimeBased(minutes * 60_000L, _state.value.fadeOutSeconds))
 
     fun startChapters(count: Int): Boolean =
-        sleepTimer.start(SleepTimerConfig.ChapterBased(count, _state.value.fadeOut))
+        sleepTimer.start(SleepTimerConfig.ChapterBased(count, _state.value.fadeOutSeconds))
 
     fun startEndOfChapter(): Boolean =
-        sleepTimer.start(SleepTimerConfig.EndOfChapter(_state.value.fadeOut))
+        sleepTimer.start(SleepTimerConfig.EndOfChapter(_state.value.fadeOutSeconds))
 
     fun cancel() = sleepTimer.cancel()
 
@@ -91,8 +91,8 @@ class TimerViewModel(
 
     fun dismissExpired() = sleepTimer.dismissExpired()
 
-    fun setFadeOut(enabled: Boolean) {
-        _state.update { it.copy(fadeOut = enabled) }
+    fun setFadeOutSeconds(seconds: Int) {
+        _state.update { it.copy(fadeOutSeconds = seconds) }
     }
 
     companion object {

@@ -47,7 +47,7 @@ fun TimerScreen() {
                 onCancel = viewModel::cancel,
                 onPostpone = { viewModel.postpone() },
                 onDismissExpired = viewModel::dismissExpired,
-                onFadeOutChanged = viewModel::setFadeOut
+                onFadeOutSecondsChanged = viewModel::setFadeOutSeconds
             )
         }
     }

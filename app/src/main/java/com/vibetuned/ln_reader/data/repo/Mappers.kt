@@ -2,9 +2,11 @@ package com.vibetuned.ln_reader.data.repo
 
 import com.vibetuned.ln_reader.data.db.BookEntity
 import com.vibetuned.ln_reader.data.db.ChapterEntity
+import com.vibetuned.ln_reader.data.db.CollectionWithCount
 import com.vibetuned.ln_reader.data.db.EmbeddedImageEntity
 import com.vibetuned.ln_reader.data.model.Book
 import com.vibetuned.ln_reader.data.model.Chapter
+import com.vibetuned.ln_reader.data.model.Collection
 import com.vibetuned.ln_reader.data.model.EmbeddedImage
 
 internal fun BookEntity.toDomain() = Book(
@@ -19,7 +21,14 @@ internal fun BookEntity.toDomain() = Book(
     fileSize = fileSize,
     syncKey = syncKey,
     epubPath = epubPath,
-    syncPath = syncPath
+    syncPath = syncPath,
+    collectionId = collectionId
+)
+
+internal fun CollectionWithCount.toDomain() = Collection(
+    id = id,
+    name = name,
+    bookCount = bookCount
 )
 
 internal fun ChapterEntity.toDomain() = Chapter(

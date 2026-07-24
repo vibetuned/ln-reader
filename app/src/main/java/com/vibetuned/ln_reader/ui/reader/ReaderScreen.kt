@@ -18,6 +18,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.NavigateBefore
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.TextDecrease
+import androidx.compose.material.icons.outlined.TextIncrease
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -61,7 +65,8 @@ fun ReaderScreen(
         factory = ReaderViewModel.factory(
             appContext = appContext,
             playerHolder = container.playerHolder,
-            bookRepository = container.bookRepository
+            bookRepository = container.bookRepository,
+            readerPreferences = container.readerPreferences
         )
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -96,6 +101,19 @@ fun ReaderScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = viewModel::zoomOut) {
+                        Icon(Icons.Outlined.TextDecrease, contentDescription = "Smaller text")
+                    }
+                    IconButton(onClick = viewModel::zoomIn) {
+                        Icon(Icons.Outlined.TextIncrease, contentDescription = "Larger text")
+                    }
+                    IconButton(onClick = viewModel::toggleDarkMode) {
+                        Icon(
+                            imageVector = if (state.isDark) Icons.Outlined.LightMode
+                            else Icons.Outlined.DarkMode,
+                            contentDescription = if (state.isDark) "Light mode" else "Dark mode"
+                        )
+                    }
                     // Only meaningful when sync is attached and the user has paged away from the
                     // audio. Tapping re-engages auto-follow and jumps to the current beat.
                     if (state.hasSync && !state.autoFollow) {
@@ -164,10 +182,11 @@ private fun EpubWebView(state: ReaderUiState, bookId: String?) {
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
             WebView(ctx).apply {
-                setBackgroundColor(android.graphics.Color.WHITE)
+                setBackgroundColor(if (state.isDark) READER_DARK_BG else android.graphics.Color.WHITE)
                 settings.javaScriptEnabled = true
                 settings.builtInZoomControls = true
                 settings.displayZoomControls = false
+                settings.textZoom = state.textZoom
                 webViewClient = object : WebViewClientCompat() {
                     override fun shouldInterceptRequest(
                         view: WebView,
@@ -204,6 +223,19 @@ private fun EpubWebView(state: ReaderUiState, bookId: String?) {
             wv.evaluateJavascript(highlightJs(state.dataAttr, beatId), null)
         }
     }
+
+    // Live text-size zoom (font scaling, not pinch).
+    LaunchedEffect(state.textZoom, webView) {
+        webView?.settings?.textZoom = state.textZoom
+    }
+
+    // Reader theme: paint the WebView background immediately and (re)inject the dark stylesheet on
+    // every page load so navigating pages keeps the theme.
+    LaunchedEffect(state.isDark, pageLoaded, webView) {
+        val wv = webView ?: return@LaunchedEffect
+        wv.setBackgroundColor(if (state.isDark) READER_DARK_BG else android.graphics.Color.WHITE)
+        if (pageLoaded) wv.evaluateJavascript(themeJs(state.isDark), null)
+    }
 }
 
 @Composable
@@ -236,6 +268,37 @@ private fun ReaderBottomBar(
 @Composable
 private fun Centered(content: @Composable () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
+}
+
+// ARGB for the dark reader background (Material dark surface ~#121212).
+private const val READER_DARK_BG = 0xFF121212.toInt()
+
+/**
+ * Applies (dark) or clears (light) a reader theme by managing a single injected `<style>` element
+ * and the document background. Forces a dark surface with light text while leaving images and the
+ * active-beat highlight intact; light mode just removes the override.
+ */
+private fun themeJs(dark: Boolean): String {
+    val css = if (dark) {
+        "html,body{background:#121212 !important;}" +
+            "body, body *:not(a){color:#e0e0e0 !important;}" +
+            "body *{background-color:transparent !important;}" +
+            "a, a *{color:#90caf9 !important;}"
+    } else {
+        ""
+    }
+    val bg = if (dark) "#121212" else "#ffffff"
+    return """
+(function(){
+  var id='lnvox-theme';
+  var e=document.getElementById(id);
+  if(e) e.remove();
+  var css='$css';
+  if(css){var s=document.createElement('style');s.id=id;s.textContent=css;(document.head||document.documentElement).appendChild(s);}
+  document.documentElement.style.backgroundColor='$bg';
+  if(document.body) document.body.style.backgroundColor='$bg';
+})();
+"""
 }
 
 private const val INJECT_STYLE_JS = """

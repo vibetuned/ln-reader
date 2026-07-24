@@ -8,5 +8,5 @@ data class TimerUiState(
     val expiredConfig: SleepTimerConfig? = null,
     val isBookLoaded: Boolean = false,
     val bookHasChapters: Boolean = false,
-    val fadeOut: Boolean = true
+    val fadeOutSeconds: Int = SleepTimerConfig.DEFAULT_FADE_OUT_SECONDS
 )

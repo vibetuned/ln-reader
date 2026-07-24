@@ -12,11 +12,21 @@ data class Book(
     val fileSize: Long,
     val syncKey: String? = null,
     val epubPath: String? = null,
-    val syncPath: String? = null
+    val syncPath: String? = null,
+    val collectionId: String? = null
 ) {
     val hasEpub: Boolean get() = epubPath != null
     val hasSync: Boolean get() = syncPath != null
 }
+
+/** A user-created folder of books, with a live count and a few contained covers for its tile art. */
+data class Collection(
+    val id: String,
+    val name: String,
+    val bookCount: Int,
+    /** Cover paths of some contained books (newest first), for the collection tile. */
+    val coverPaths: List<String> = emptyList()
+)
 
 data class Chapter(
     val id: Long,

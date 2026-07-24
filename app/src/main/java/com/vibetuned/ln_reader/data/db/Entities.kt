@@ -26,7 +26,17 @@ data class BookEntity(
     /** Local path to an attached EPUB companion, or null. */
     val epubPath: String? = null,
     /** Local path to an attached sync_manifest.json companion, or null. */
-    val syncPath: String? = null
+    val syncPath: String? = null,
+    /** Id of the collection this book lives in, or null when it sits at the top of the library. */
+    val collectionId: String? = null
+)
+
+/** A user-created folder of books. Books reference it via [BookEntity.collectionId]; no nesting. */
+@Entity(tableName = "collections")
+data class CollectionEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val createdAt: Long
 )
 
 @Entity(

@@ -1,5 +1,45 @@
 # Changelog
 
+## v1.3 — 2026-07-24
+
+Adds collections, library sorting, an adjustable sleep-timer fade, and a dark
+mode + text sizing for the EPUB reader.
+
+### Play Store release notes (≤ 500 chars)
+
+```
+• Collections: group books into folders, shown as little cover shelves. Create one from +, open it to browse, and add/remove books from a book's menu.
+• Sort your library by name or date added, ascending or descending — remembered across launches.
+• Sleep-timer fade-out is now adjustable: Off, 10s, 30s, 1m or 5m.
+• EPUB reader: dark mode and adjustable text size, both remembered.
+```
+
+### Library
+- **Collections** — group books into folders. The **+** button now offers
+  **Book** or **Collection**; naming a collection creates it. Open a collection
+  to see its books, and its **+** adds books straight into it (no nesting).
+  Each collection tile shows a small shelf of the covers inside, with the book
+  count where a duration would be. Move a book in or out with **Add to
+  collection** / **Remove from collection** in its detail sheet.
+- **Deleting a collection** asks what to do with its books — **move them back to
+  the library** or **delete them too**.
+- **Sorting** — a sort control in the top bar orders books by **Name** or
+  **Date added**, ascending or descending (tap the active field again to flip
+  direction). The choice is **remembered across launches** and applies to the
+  library and collections alike.
+
+### Sleep timer
+- **Adjustable fade-out** — the fade-out toggle is now a slider with **Off, 10s,
+  30s, 1m and 5m** stops. The end-of-timer volume ramp scales to the length you
+  pick (Off stops playback without fading).
+
+### Reader
+- **Dark mode** — a top-bar button toggles the EPUB reader between light and
+  dark. Dark mode paints a dark page with light text while leaving
+  illustrations and the audio-follow highlight intact.
+- **Text size** — **A− / A+** buttons scale the reading font (80–250%). Both the
+  theme and text size are **remembered across books and launches**.
+
 ## v1.2 — 2026-06-29
 
 Adds a mini-player, per-book progress in the library, and a tappable chapter

@@ -9,15 +9,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -26,6 +25,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.vibetuned.ln_reader.player.SleepTimerConfig
 import com.vibetuned.ln_reader.player.SleepTimerState
+import kotlin.math.roundToInt
+
+private val FADE_OPTIONS = listOf(0, 10, 30, 60, 300)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -37,7 +39,7 @@ fun TimerControls(
     onCancel: () -> Unit,
     onPostpone: () -> Unit,
     onDismissExpired: () -> Unit,
-    onFadeOutChanged: (Boolean) -> Unit,
+    onFadeOutSecondsChanged: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
@@ -118,23 +120,58 @@ fun TimerControls(
         }
 
         Spacer(Modifier.height(24.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Switch(
-                checked = state.fadeOut,
-                onCheckedChange = onFadeOutChanged
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Fade out audio",
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
             )
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text("Fade out audio", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                fadeLabel(state.fadeOutSeconds),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Slider(
+            value = FADE_OPTIONS.indexOf(state.fadeOutSeconds).coerceAtLeast(0).toFloat(),
+            onValueChange = { pos ->
+                onFadeOutSecondsChanged(FADE_OPTIONS[pos.roundToInt().coerceIn(0, FADE_OPTIONS.lastIndex)])
+            },
+            valueRange = 0f..FADE_OPTIONS.lastIndex.toFloat(),
+            steps = FADE_OPTIONS.size - 2
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            FADE_OPTIONS.forEach { option ->
                 Text(
-                    "Volume ramps to silence over the last 10 seconds.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fadeLabel(option),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (option == state.fadeOutSeconds) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
+        Text(
+            if (state.fadeOutSeconds <= 0) "Playback stops without fading."
+            else "Volume eases to silence as the timer ends.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp)
+        )
         Spacer(Modifier.height(16.dp))
     }
+}
+
+private fun fadeLabel(seconds: Int): String = when (seconds) {
+    0 -> "Off"
+    60 -> "1m"
+    300 -> "5m"
+    else -> "${seconds}s"
 }
 
 @Composable
