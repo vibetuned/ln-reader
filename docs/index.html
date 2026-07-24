@@ -46,7 +46,7 @@
         <a class="btn btn-ghost" href="https://github.com/vibetuned/ln-reader">View on GitHub</a>
       </div>
       <div class="badge-row">
-        <span class="badge">★ Now on Google Play · v1.1</span>
+        <span class="badge">★ Now on Google Play · v1.3</span>
         <span class="badge">Android 13+</span>
         <span class="badge">Kotlin · Jetpack Compose</span>
         <span class="badge">100% on-device</span>
@@ -58,39 +58,39 @@
   <section id="whatsnew" class="alt">
     <div class="wrap">
       <div class="section-head">
-        <span class="ver-pill">v1.1 · 19 Jun 2026</span>
+        <span class="ver-pill">v1.3 · 29 Jun 2026</span>
         <h2>What's new</h2>
-        <p>A player-experience and maintenance update — now live on Google Play.</p>
+        <p>The biggest update yet — collections, library sorting, an adjustable sleep fade, and dark mode for the reader (plus the mini-player and per-book progress from v1.2).</p>
       </div>
       <div class="grid">
         <div class="card">
-          <span class="ico">↩️</span>
-          <h3>Resume on launch</h3>
-          <p>Cold-starting the app reopens whatever book you were last listening to, at its saved position. Back still returns home, and rotating a screen won't yank you into the player.</p>
+          <span class="ico">📂</span>
+          <h3>Collections</h3>
+          <p>Group your books into folders, each shown as a little shelf of the covers inside. Create one from the <strong>+</strong> button, open it to browse, and add or remove books from a book's detail sheet.</p>
         </div>
         <div class="card">
-          <span class="ico">🎛️</span>
-          <h3>Richer notification controls</h3>
-          <p>The media / lock-screen notification now carries skip-back 10 s, skip-forward 30 s, and an end-of-chapter sleep button. The unused previous / next buttons are gone for these single-file books.</p>
+          <span class="ico">↕️</span>
+          <h3>Sort your library</h3>
+          <p>Order books by <strong>name</strong> or <strong>date added</strong>, ascending or descending — tap the active field again to flip direction. Your choice is remembered across launches.</p>
         </div>
         <div class="card">
-          <span class="ico">🤫</span>
-          <h3>Silent sleep-timer alert</h3>
-          <p>The end-of-timer notification now uses a low-importance channel, so it no longer plays a sound while you're drifting off. Postpone, Dismiss, and shake-to-postpone are unchanged.</p>
+          <span class="ico">🎚️</span>
+          <h3>Adjustable sleep fade</h3>
+          <p>The sleep-timer fade-out is now a slider — <strong>Off, 10 s, 30 s, 1 min, or 5 min</strong> — so the wind-down matches how you like to drift off.</p>
         </div>
         <div class="card">
-          <span class="ico">☁️</span>
-          <h3>Smoother cloud imports</h3>
-          <p>While a cloud provider prepares a file, you now see a clear <em>"Starting download…"</em> indicator instead of a bar frozen at 0 %. Imports also start faster — one metadata round-trip instead of two.</p>
+          <span class="ico">🌙</span>
+          <h3>Reader dark mode &amp; text size</h3>
+          <p>The EPUB reader gains a light / dark toggle and <strong>A− / A+</strong> text sizing, both remembered across books and launches.</p>
         </div>
         <div class="card">
-          <span class="ico">🛡️</span>
-          <h3>Android 15 compatibility</h3>
-          <p>Dropped a legacy UI dependency that called APIs deprecated in Android 15, clearing the Play Console warning. Plus the fixed sleep-timer toolbar icon and general polish.</p>
+          <span class="ico">⏯️</span>
+          <h3>Mini-player &amp; progress <span class="tag create">v1.2</span></h3>
+          <p>A compact playback bar rides along on every screen (play/pause, skips, and a Read button; tap to expand), the library shows a progress bar on each cover, and the player's chapter title doubles as a chapter picker.</p>
         </div>
       </div>
       <p class="changelog-foot">
-        See the <a href="https://github.com/vibetuned/ln-reader/blob/main/CHANGELOG.md">full changelog</a> for every change, including the v1.0 release notes.
+        See the <a href="https://github.com/vibetuned/ln-reader/blob/main/CHANGELOG.md">full changelog</a> for every change, including the v1.2 and v1.0 release notes.
       </p>
     </div>
   </section>
@@ -143,8 +143,9 @@
           <h3>Library</h3>
           <ul>
             <li>Import <strong>.m4b</strong> from any SAF source — device storage, Drive, OneDrive, Dropbox…</li>
-            <li>Grid view with embedded cover art, title, author, and total duration.</li>
-            <li>Per-book detail: chapter and image counts, plus Open / View images / Remove.</li>
+            <li>Grid of covers, each with a <strong>playback progress bar</strong>; <strong>sort</strong> by name or date added (remembered).</li>
+            <li>Group books into <strong>collections</strong> (folders) with cover-shelf tiles; add / remove from a book's detail sheet.</li>
+            <li>Tap a book to start playing; detail sheet has Open, Read, images, collection, and Remove.</li>
           </ul>
         </div>
         <div class="card">
@@ -152,9 +153,9 @@
           <h3>Player</h3>
           <ul>
             <li>Foreground media session — background playback from notification &amp; lock screen.</li>
-            <li><strong>Chapter-relative scrubber</strong> showing time-in-chapter and "Chapter N of M".</li>
-            <li>±10 s / ±30 s skips, prev / next chapter, 0.5×–3× pitch-preserving speed.</li>
-            <li>Auto-saves your position every 5 s; resumes within ≈5 s on next open.</li>
+            <li><strong>Mini-player</strong> on every other screen — play/pause, skips, Read button; tap to expand.</li>
+            <li><strong>Chapter-relative scrubber</strong>; the stacked chapter title / "Chapter N of M" is a tappable chapter picker.</li>
+            <li>±10 s / ±30 s skips, prev / next chapter, 0.5×–3× speed; auto-saves and resumes your position.</li>
           </ul>
         </div>
         <div class="card">
@@ -172,7 +173,7 @@
           <ul>
             <li><strong>Time</strong> mode — 5 to 90 min presets; pauses with playback, resumes on play.</li>
             <li><strong>Chapters</strong> mode — end of current, or +2 / +3 / +5 chapters.</li>
-            <li>Optional 10 s volume fade-out, with Postpone / Dismiss and shake-to-postpone.</li>
+            <li>Adjustable volume fade-out — Off / 10 s / 30 s / 1 min / 5 min — plus Postpone / Dismiss and shake-to-postpone.</li>
           </ul>
         </div>
         <div class="card">
@@ -188,7 +189,7 @@
           <span class="ico">📖</span>
           <h3>EPUB companion + sync</h3>
           <ul>
-            <li>Built-in WebView reader, reachable from the player or the book's "Read" button.</li>
+            <li>Built-in WebView reader with <strong>light / dark mode</strong> and adjustable text size, both remembered.</li>
             <li>A <strong>sync manifest</strong> ties audio timestamps to EPUB beats &amp; illustrations.</li>
             <li>Auto-follow: highlights the active beat, scrolls, and turns pages as you listen.</li>
           </ul>
@@ -257,7 +258,7 @@
         <li>The first embedded image (<code>covr</code>) is the cover; other images appear in the viewer but aren't tied to chapters.</li>
         <li><strong>Scrubber markers match images by ordinal index</strong> — a marker only appears if the m4b has an image at that index.</li>
         <li><strong>Reader highlighting needs matching spans</strong> (<code>span.lnvox-beat[data-beat-id]</code>); unmatched beats just don't highlight.</li>
-        <li>The reader uses the EPUB's own CSS on a forced-white page — no dedicated dark reading theme yet.</li>
+        <li>Reader dark mode themes via injected CSS — an EPUB with hard-coded colours or a background image may not fully darken.</li>
         <li><strong>Re-importing the same file creates a duplicate</strong> (UUID-keyed library, no content hashing).</li>
         <li><strong>No resume for interrupted downloads</strong> — a killed mid-download is cleaned up; re-import.</li>
         <li><strong>Single-device only.</strong> Uninstalling drops your library and saved positions.</li>

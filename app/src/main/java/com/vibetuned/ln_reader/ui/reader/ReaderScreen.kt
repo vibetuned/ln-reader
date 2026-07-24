@@ -283,7 +283,12 @@ private fun themeJs(dark: Boolean): String {
         "html,body{background:#121212 !important;}" +
             "body, body *:not(a){color:#e0e0e0 !important;}" +
             "body *{background-color:transparent !important;}" +
-            "a, a *{color:#90caf9 !important;}"
+            "a, a *{color:#90caf9 !important;}" +
+            // Keep the active-beat highlight visible: the transparent-background rule above uses
+            // !important, so the highlight needs its own !important rule (class beats `body *` on
+            // specificity). Brighter amber + dark text so it reads on the dark page.
+            ".lnvox-active{background:rgba(255,213,79,0.85) !important;border-radius:3px !important;}" +
+            ".lnvox-active,.lnvox-active *{color:#121212 !important;}"
     } else {
         ""
     }

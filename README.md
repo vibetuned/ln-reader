@@ -9,18 +9,20 @@ Today, the Lectures and Narrations ecosystem consists of two halves:
 
 ## ln-reader in a nutshell
 
-An Android audiobook player for `.m4b` files, focused on audiobooks. Not on the Play Store yet.
+An Android audiobook player for `.m4b` files, focused on audiobooks. Available on Google Play.
 
 ## Features
 
 ### Library
 - Import `.m4b` files from any SAF source (device storage, Drive, OneDrive, Dropbox, …).
-- Grid view with embedded cover art, title, author, and total duration.
-- Tap a book to see chapter and image counts plus the Open / View images / Remove actions.
+- Grid of covers, each with a **playback progress bar**; **sort** by name or date added (ascending / descending, remembered across launches).
+- **Collections** — group books into folders shown as cover-shelf tiles. The `+` button offers Book or Collection; open a collection to browse it or import books straight into it.
+- Tap a book to play it; its detail sheet has Open, Read, View images, Add to / Remove from collection, and Remove from library.
 
 ### Player
 - Foreground media session — keeps playing in the background, controllable from the system media notification and lock screen.
-- Now-playing screen with cover, chapter title, **chapter-relative scrubber** (shows time-in-chapter, not whole-book), and "Chapter N of M" line.
+- **Mini-player** above the bottom nav on every screen except the full player — cover, title, ±10 s / 30 s skips, play / pause, and a Read button (when the book has an EPUB); tap it to open the full player.
+- Now-playing screen with cover, **chapter-relative scrubber** (shows time-in-chapter, not whole-book), and a **tappable chapter selector** (chapter title over "Chapter N of M") that opens the chapter list.
 - Transport: ±10 s / ±30 s skips, previous / next chapter, play / pause.
 - Playback speed presets from 0.5× to 3×, pitch-preserving.
 - Chapter list bottom sheet, auto-scrolls to the current chapter.
@@ -37,7 +39,7 @@ An Android audiobook player for `.m4b` files, focused on audiobooks. Not on the 
 - Two modes:
   - **Time** — 5 / 15 / 30 / 45 / 60 / 90 min presets. The countdown freezes when you manually pause and resumes when you press play.
   - **Chapters** — "end of current chapter" or +2 / +3 / +5 chapters from your position.
-- Linear volume fade-out over the last 10 seconds (toggle).
+- Adjustable volume fade-out at the tail — Off / 10 s / 30 s / 1 min / 5 min.
 - When the timer fires it pauses playback and posts a notification with **Postpone** (restart the same timer) and **Dismiss** actions.
 - **Shake-to-postpone** while the expired-state notification is up — accelerometer-driven, ignored when the timer isn't pending.
 - Reachable from the player's top bar (bottom sheet) or the bottom-nav Timer tab (full screen).
@@ -50,7 +52,7 @@ An Android audiobook player for `.m4b` files, focused on audiobooks. Not on the 
 
 ### EPUB companion + sync
 Each book can have two optional companions, attached from its detail sheet:
-- **EPUB** — a built-in WebView reader, reachable from the player top bar or the book's "Read" button. Manual page turning, white page background.
+- **EPUB** — a built-in WebView reader, reachable from the player top bar or the book's "Read" button. Manual page turning, with **light / dark mode** and **adjustable text size** (both remembered across books).
 - **Sync manifest** (`sync_manifest.json`) — ties audio timestamps to EPUB beats and illustration positions.
 
 What they unlock, depending on what's attached:
@@ -79,7 +81,7 @@ What they unlock, depending on what's attached:
 - The first embedded image (`covr` data atom) is treated as the cover. Other embedded images are exposed in the viewer but not tied to specific chapters.
 - **Scrubber image markers are matched to embedded m4b images by ordinal index** (1st manifest image ↔ 1st embedded image, …). A marker only appears if the m4b actually has an image at that index; manifest `src` paths are not resolved from the EPUB.
 - **Reader highlighting needs matching spans.** The EPUB must contain `<span class="lnvox-beat" data-beat-id="…">` elements whose ids match the sync manifest; beats without a matching span just don't highlight (no error).
-- The reader renders the EPUB's own CSS on a forced-white page; there's no dedicated dark reading theme yet.
+- Reader dark mode themes via injected CSS; an EPUB with hard-coded colours or a background image may not fully darken.
 - **Re-importing the same file creates a duplicate book** (UUID-keyed library, no content hashing).
 - **No resume for interrupted downloads.** If you kill the app mid-download, the partial file is cleaned up and you need to re-import.
 - **Single-device only.** The app stores everything in its own database / file storage; uninstalling drops your library and saved positions.
