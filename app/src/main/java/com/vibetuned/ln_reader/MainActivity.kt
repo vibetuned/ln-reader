@@ -32,6 +32,7 @@ import com.vibetuned.ln_reader.ui.navigation.LnReaderNavGraph
 import com.vibetuned.ln_reader.ui.navigation.PlayerRoute
 import com.vibetuned.ln_reader.ui.navigation.ReaderRoute
 import com.vibetuned.ln_reader.ui.navigation.TopLevelDestination
+import com.vibetuned.ln_reader.ui.player.ContinueCollectionHost
 import com.vibetuned.ln_reader.ui.player.MiniPlayerBar
 import com.vibetuned.ln_reader.ui.theme.LnReaderTheme
 
@@ -150,4 +151,8 @@ private fun LnReaderApp() {
             )
         }
     }
+
+    // Global end-of-book prompt: offers to continue to the next/previous book when a book inside a
+    // collection finishes, over whatever screen is showing.
+    ContinueCollectionHost()
 }

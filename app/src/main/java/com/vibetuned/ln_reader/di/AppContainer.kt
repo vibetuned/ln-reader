@@ -10,6 +10,7 @@ import com.vibetuned.ln_reader.data.repo.BookRepository
 import com.vibetuned.ln_reader.data.repo.CollectionRepository
 import com.vibetuned.ln_reader.data.repo.PositionRepository
 import com.vibetuned.ln_reader.m4b.M4bParser
+import com.vibetuned.ln_reader.player.CollectionAdvanceController
 import com.vibetuned.ln_reader.player.PlayerHolder
 import com.vibetuned.ln_reader.player.SleepTimerController
 
@@ -73,5 +74,9 @@ class AppContainer(context: Context) {
 
     val sleepTimerController: SleepTimerController by lazy {
         SleepTimerController(appContext, playerHolder, bookRepository)
+    }
+
+    val collectionAdvanceController: CollectionAdvanceController by lazy {
+        CollectionAdvanceController(playerHolder, bookRepository, positionRepository, libraryPreferences)
     }
 }

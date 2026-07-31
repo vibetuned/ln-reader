@@ -16,6 +16,8 @@ data class LibraryUiState(
     val entries: List<LibraryEntry> = emptyList(),
     val sortField: SortField = SortField.DateAdded,
     val sortDirection: SortDirection = SortDirection.Desc,
+    /** True when the open collection is in manual (hand-arranged) order. Collection views only. */
+    val manualSort: Boolean = false,
     /** Non-null while viewing inside a collection; used as the screen title. */
     val collectionName: String? = null,
     /** Flips true once the open collection has been deleted, so the screen can navigate back. */

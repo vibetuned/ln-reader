@@ -38,6 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import coil3.compose.AsyncImage
+import com.vibetuned.ln_reader.data.model.Chapter
 import com.vibetuned.ln_reader.ui.common.appContainer
 import kotlinx.coroutines.delay
 
@@ -72,13 +73,26 @@ fun MiniPlayerBar(
     val nowPlaying = rememberNowPlaying(controller) ?: return
     val c = controller ?: return
     val bookHasEpub = onOpenReader != null && books.any { it.id == nowPlaying.bookId && it.hasEpub }
+    // Chapters aren't in the controller's metadata; load them once per book for the chapter bar.
+    val chapters by produceState(initialValue = emptyList<Chapter>(), nowPlaying.bookId) {
+        value = container.bookRepository.getDetail(nowPlaying.bookId)?.chapters ?: emptyList()
+    }
 
     Surface(modifier = modifier.fillMaxWidth(), tonalElevation = 3.dp) {
         Column {
-            val fraction = if (nowPlaying.durationMs > 0)
+            val bookFraction = if (nowPlaying.durationMs > 0)
                 (nowPlaying.positionMs.toFloat() / nowPlaying.durationMs).coerceIn(0f, 1f) else 0f
+            // Chapter progress rides on top of the book progress; a distinct colour keeps the two
+            // thin bars readable as separate. Only shown when the book has chapters.
+            if (chapters.isNotEmpty()) {
+                LinearProgressIndicator(
+                    progress = { chapterFraction(chapters, nowPlaying.positionMs, nowPlaying.durationMs) },
+                    color = MaterialTheme.colorScheme.tertiary,
+                    modifier = Modifier.fillMaxWidth().height(2.dp)
+                )
+            }
             LinearProgressIndicator(
-                progress = { fraction },
+                progress = { bookFraction },
                 modifier = Modifier.fillMaxWidth().height(2.dp)
             )
             Row(
@@ -181,6 +195,19 @@ private fun rememberNowPlaying(controller: MediaController?): NowPlaying? {
         }
     }
     return state
+}
+
+/** Progress through the chapter that contains [positionMs], 0f..1f. */
+private fun chapterFraction(chapters: List<Chapter>, positionMs: Long, bookDurationMs: Long): Float {
+    if (chapters.isEmpty()) return 0f
+    var idx = 0
+    for (i in chapters.indices) {
+        if (chapters[i].startMs <= positionMs) idx = i else break
+    }
+    val start = chapters[idx].startMs
+    val end = chapters.getOrNull(idx + 1)?.startMs ?: bookDurationMs
+    val dur = (end - start).coerceAtLeast(1L)
+    return ((positionMs - start).toFloat() / dur).coerceIn(0f, 1f)
 }
 
 private fun MediaController.toNowPlaying(): NowPlaying? {

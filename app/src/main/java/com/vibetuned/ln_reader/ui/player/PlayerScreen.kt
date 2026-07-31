@@ -36,6 +36,7 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -280,6 +281,7 @@ private fun PlayerContent(
             positionInChapterMs = state.positionInChapterMs,
             chapterDurationMs = state.currentChapterDurationMs,
             chapterStartMs = state.currentChapterStartMs,
+            bookDurationMs = state.durationMs,
             markers = state.imageMarkers,
             onSeek = onSeek,
             onMarkerClick = onMarkerClick
@@ -348,6 +350,7 @@ private fun Scrubber(
     positionInChapterMs: Long,
     chapterDurationMs: Long,
     chapterStartMs: Long,
+    bookDurationMs: Long,
     markers: List<ImageMarker>,
     onSeek: (Long) -> Unit,
     onMarkerClick: (ImageMarker) -> Unit
@@ -396,11 +399,34 @@ private fun Scrubber(
             draggingValue = null
         }
     )
+    // Book-absolute position follows the drag (chapter start + chapter-local slider value).
+    val bookPositionMs = (chapterStartMs + sliderValue.toLong()).coerceIn(0L, bookDurationMs.coerceAtLeast(0L))
+    val bookProgress = if (bookDurationMs > 0L) (bookPositionMs.toFloat() / bookDurationMs).coerceIn(0f, 1f) else 0f
+    val bookRemainingMs = (bookDurationMs - bookPositionMs).coerceAtLeast(0L)
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(formatTime(sliderValue.toLong()), style = MaterialTheme.typography.labelMedium)
+        // Whole-book context between the chapter times: a progress bar for how far through the book
+        // we are (left) and the time left in the book (right), splitting the middle space in two.
+        Row(
+            modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            LinearProgressIndicator(
+                progress = { bookProgress },
+                modifier = Modifier.weight(3f).height(4.dp)
+            )
+            Text(
+                formatHoursMinutes(bookRemainingMs),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.End,
+                modifier = Modifier.weight(1f)
+            )
+        }
         Text(
             "-${formatTime((chapterDurationMs - sliderValue.toLong()).coerceAtLeast(0L))}",
             style = MaterialTheme.typography.labelMedium
@@ -458,6 +484,12 @@ private fun TransportRow(
             Icon(Icons.Filled.SkipNext, contentDescription = "Next chapter")
         }
     }
+}
+
+/** Whole-book remaining time as "Xh Ym" — minutes rounded up so it only reads 0h 0m at the end. */
+private fun formatHoursMinutes(ms: Long): String {
+    val totalMinutes = (ms.coerceAtLeast(0L) + 59_999L) / 60_000L
+    return "${totalMinutes / 60}h ${totalMinutes % 60}m"
 }
 
 internal fun formatTime(ms: Long): String {

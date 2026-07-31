@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.Delete
@@ -88,6 +89,7 @@ fun LibraryScreen(
     onViewImages: (String) -> Unit = {},
     onReadBook: (String) -> Unit = {},
     onOpenCollection: (String) -> Unit = {},
+    onReorder: (collectionId: String) -> Unit = {},
     onBack: () -> Unit = {}
 ) {
     val container = appContainer()
@@ -152,7 +154,7 @@ fun LibraryScreen(
                             onDismissRequest = { showSortMenu = false }
                         ) {
                             SortField.entries.forEach { field ->
-                                val selected = state.sortField == field
+                                val selected = !state.manualSort && state.sortField == field
                                 DropdownMenuItem(
                                     text = { Text(sortFieldLabel(field)) },
                                     trailingIcon = {
@@ -176,6 +178,23 @@ fun LibraryScreen(
                                         }
                                         viewModel.setSort(field, direction)
                                         showSortMenu = false
+                                    }
+                                )
+                            }
+                            // Manual arrangement is a per-collection mode; only offered inside one.
+                            // Tapping it switches to manual order and opens the reorder list.
+                            if (isCollectionView) {
+                                DropdownMenuItem(
+                                    text = { Text("Manual") },
+                                    trailingIcon = {
+                                        if (state.manualSort) {
+                                            Icon(Icons.Filled.Check, contentDescription = "Selected")
+                                        }
+                                    },
+                                    onClick = {
+                                        showSortMenu = false
+                                        viewModel.enableManual()
+                                        collectionId?.let(onReorder)
                                     }
                                 )
                             }

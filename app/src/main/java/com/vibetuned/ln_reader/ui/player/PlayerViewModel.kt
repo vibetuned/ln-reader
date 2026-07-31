@@ -61,7 +61,7 @@ class PlayerViewModel(
                 // adopt it so reopening the screen mid-playback shows the right state.
                 if (_state.value.book == null) {
                     controller.currentMediaItem?.mediaId?.takeIf { it.isNotEmpty() }
-                        ?.let { adoptCurrentBook(it) }
+                        ?.let { adoptCurrentBook(it, replaceExisting = false) }
                 }
                 val listener = makeListener(controller)
                 controller.addListener(listener)
@@ -92,7 +92,13 @@ class PlayerViewModel(
                 _state.update { it.copy(isLoading = false, error = "Book not found") }
                 return@launch
             }
-            val startPos = positionRepository.get(bookId) ?: 0L
+            val savedPos = positionRepository.get(bookId) ?: 0L
+            // Launch safety: a finished book (saved position at its end) restarts from the
+            // beginning rather than loading at the end — which would immediately fire STATE_ENDED
+            // (stopping instantly and popping the continue-collection prompt).
+            val startPos = if (detail.book.durationMs > 0 &&
+                savedPos >= detail.book.durationMs - FINISHED_MARGIN_MS
+            ) 0L else savedPos
             val markers = buildMarkers(detail)
             _state.update {
                 it.copy(
@@ -182,23 +188,30 @@ class PlayerViewModel(
     }
 
     /**
-     * Mirror an already-loaded controller item into VM state without resetting playback.
-     * Used when the player screen is opened while playback is already in progress.
+     * Mirror an already-loaded controller item into VM state without resetting playback. Used to
+     * follow the currently-playing book — on first attach ([replaceExisting] = false, populate only
+     * if empty) and on later media-item transitions ([replaceExisting] = true, follow book changes).
      */
-    private fun adoptCurrentBook(bookId: String) {
+    private fun adoptCurrentBook(bookId: String, replaceExisting: Boolean = true) {
         viewModelScope.launch {
             val detail = bookRepository.getDetail(bookId) ?: return@launch
             val markers = buildMarkers(detail)
             _state.update { current ->
-                // Bail if a concurrent open(...) already populated the book.
-                if (current.book?.id == bookId) current
-                else current.copy(
-                    book = detail.book,
-                    chapters = detail.chapters,
-                    images = detail.images,
-                    imageMarkers = markers,
-                    durationMs = detail.book.durationMs.takeIf { it > 0 } ?: current.durationMs
-                )
+                when {
+                    // Already showing this book — nothing to do.
+                    current.book?.id == bookId -> current
+                    // First-attach adoption must not clobber a different book the screen explicitly
+                    // opened while this coroutine was loading (otherwise the view strands on the
+                    // previously-playing book while the new one plays).
+                    !replaceExisting && current.book != null -> current
+                    else -> current.copy(
+                        book = detail.book,
+                        chapters = detail.chapters,
+                        images = detail.images,
+                        imageMarkers = markers,
+                        durationMs = detail.book.durationMs.takeIf { it > 0 } ?: current.durationMs
+                    )
+                }
             }
         }
     }
@@ -247,6 +260,9 @@ class PlayerViewModel(
         private const val POLL_INTERVAL_MS = 250L
         private const val SKIP_FORWARD_MS = 30_000L
         private const val SKIP_BACK_MS = 10_000L
+
+        /** A saved position within this margin of the end counts as "finished" → restart from 0. */
+        private const val FINISHED_MARGIN_MS = 1_000L
 
         fun factory(
             playerHolder: PlayerHolder,

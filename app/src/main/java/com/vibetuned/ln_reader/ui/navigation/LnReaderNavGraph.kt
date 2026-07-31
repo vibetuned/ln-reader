@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.vibetuned.ln_reader.ui.library.LibraryScreen
+import com.vibetuned.ln_reader.ui.library.ReorderScreen
 import com.vibetuned.ln_reader.ui.player.PlayerScreen
 import com.vibetuned.ln_reader.ui.reader.ReaderScreen
 import com.vibetuned.ln_reader.ui.settings.SettingsScreen
@@ -32,6 +33,11 @@ object ReaderRoute {
 object CollectionRoute {
     const val PATTERN = "collection?collectionId={collectionId}"
     fun forCollection(collectionId: String) = "collection?collectionId=$collectionId"
+}
+
+object ReorderRoute {
+    const val PATTERN = "reorder?collectionId={collectionId}"
+    fun forCollection(collectionId: String) = "reorder?collectionId=$collectionId"
 }
 
 @Composable
@@ -80,6 +86,24 @@ fun LnReaderNavGraph(
                 onReadBook = { bookId ->
                     navController.navigate(ReaderRoute.forBook(bookId))
                 },
+                onReorder = { id ->
+                    navController.navigate(ReorderRoute.forCollection(id))
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = ReorderRoute.PATTERN,
+            arguments = listOf(
+                navArgument("collectionId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            ReorderScreen(
+                collectionId = backStackEntry.arguments?.getString("collectionId"),
                 onBack = { navController.popBackStack() }
             )
         }

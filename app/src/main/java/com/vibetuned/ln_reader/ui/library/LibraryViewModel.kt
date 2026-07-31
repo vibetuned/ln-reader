@@ -13,6 +13,8 @@ import com.vibetuned.ln_reader.data.prefs.SortField
 import com.vibetuned.ln_reader.data.repo.BookRepository
 import com.vibetuned.ln_reader.data.repo.CollectionRepository
 import com.vibetuned.ln_reader.data.repo.PositionRepository
+import com.vibetuned.ln_reader.data.repo.orderCollectionBooks
+import com.vibetuned.ln_reader.data.repo.sortBooksByField
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,7 +54,7 @@ class LibraryViewModel(
                 ) { collections, books, positions, sort ->
                     buildList<LibraryEntry> {
                         collections.forEach { add(LibraryEntry.CollectionEntry(it)) }
-                        sortBooks(books, sort).forEach {
+                        sortBooksByField(books, sort).forEach {
                             add(LibraryEntry.BookEntry(it, progressFraction(positions[it.id], it.durationMs)))
                         }
                     }
@@ -65,13 +67,16 @@ class LibraryViewModel(
                 combine(
                     bookRepository.booksInCollection(collectionId),
                     positionRepository.observeAllPositions(),
-                    libraryPreferences.sort
-                ) { books, positions, sort ->
-                    sortBooks(books, sort).map {
+                    libraryPreferences.sort,
+                    libraryPreferences.collectionSort(collectionId)
+                ) { books, positions, sort, collectionSort ->
+                    val ordered = orderCollectionBooks(books, sort, collectionSort)
+                    val entries = ordered.map {
                         LibraryEntry.BookEntry(it, progressFraction(positions[it.id], it.durationMs))
                     }
-                }.collect { entries ->
-                    _state.update { it.copy(entries = entries, isLoading = false) }
+                    entries to collectionSort.manual
+                }.collect { (entries, manual) ->
+                    _state.update { it.copy(entries = entries, isLoading = false, manualSort = manual) }
                 }
             }
             viewModelScope.launch {
@@ -82,21 +87,23 @@ class LibraryViewModel(
         }
     }
 
-    private fun sortBooks(books: List<Book>, sort: LibrarySort): List<Book> {
-        val ascending = when (sort.field) {
-            SortField.Name -> books.sortedBy { it.title.lowercase() }
-            SortField.DateAdded -> books.sortedBy { it.importedAt }
-        }
-        return if (sort.direction == SortDirection.Desc) ascending.reversed() else ascending
-    }
-
     private fun progressFraction(positionMs: Long?, durationMs: Long): Float {
         if (positionMs == null || durationMs <= 0L) return 0f
         return (positionMs.toFloat() / durationMs).coerceIn(0f, 1f)
     }
 
     fun setSort(field: SortField, direction: SortDirection) {
-        viewModelScope.launch { libraryPreferences.setSort(field, direction) }
+        viewModelScope.launch {
+            libraryPreferences.setSort(field, direction)
+            // Choosing a field sort exits manual mode for this collection.
+            collectionId?.let { libraryPreferences.setCollectionManual(it, false) }
+        }
+    }
+
+    /** Switch the open collection into manual mode; the screen then opens the reorder list. */
+    fun enableManual() {
+        val id = collectionId ?: return
+        viewModelScope.launch { libraryPreferences.setCollectionManual(id, true) }
     }
 
     fun import(uri: Uri) {

@@ -16,13 +16,14 @@ An Android audiobook player for `.m4b` files, focused on audiobooks. Available o
 ### Library
 - Import `.m4b` files from any SAF source (device storage, Drive, OneDrive, Dropbox, …).
 - Grid of covers, each with a **playback progress bar**; **sort** by name or date added (ascending / descending, remembered across launches).
-- **Collections** — group books into folders shown as cover-shelf tiles. The `+` button offers Book or Collection; open a collection to browse it or import books straight into it.
+- **Collections** — group books into folders shown as cover-shelf tiles. The `+` button offers Book or Collection; open a collection to browse it or import books straight into it. Sort a collection by name / date, or pick **Manual** to drag its books into a hand-arranged order (remembered per collection).
 - Tap a book to play it; its detail sheet has Open, Read, View images, Add to / Remove from collection, and Remove from library.
+- **Continue the collection** — when a book that's in a collection finishes, a prompt offers the next / previous book by its cover, from any screen.
 
 ### Player
 - Foreground media session — keeps playing in the background, controllable from the system media notification and lock screen.
-- **Mini-player** above the bottom nav on every screen except the full player — cover, title, ±10 s / 30 s skips, play / pause, and a Read button (when the book has an EPUB); tap it to open the full player.
-- Now-playing screen with cover, **chapter-relative scrubber** (shows time-in-chapter, not whole-book), and a **tappable chapter selector** (chapter title over "Chapter N of M") that opens the chapter list.
+- **Mini-player** above the bottom nav on every screen except the full player — cover, title, ±10 s / 30 s skips, play / pause, a Read button (when the book has an EPUB), and stacked **chapter + whole-book progress bars**; tap it to open the full player.
+- Now-playing screen with cover, **chapter-relative scrubber** (shows time-in-chapter, not whole-book) plus a **whole-book progress bar and time-left** between the chapter times, and a **tappable chapter selector** (chapter title over "Chapter N of M") that opens the chapter list.
 - Transport: ±10 s / ±30 s skips, previous / next chapter, play / pause.
 - Playback speed presets from 0.5× to 3×, pitch-preserving.
 - Chapter list bottom sheet, auto-scrolls to the current chapter.

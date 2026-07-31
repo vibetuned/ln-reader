@@ -46,7 +46,7 @@
         <a class="btn btn-ghost" href="https://github.com/vibetuned/ln-reader">View on GitHub</a>
       </div>
       <div class="badge-row">
-        <span class="badge">★ Now on Google Play · v1.3</span>
+        <span class="badge">★ Now on Google Play · v1.4</span>
         <span class="badge">Android 13+</span>
         <span class="badge">Kotlin · Jetpack Compose</span>
         <span class="badge">100% on-device</span>
@@ -58,39 +58,39 @@
   <section id="whatsnew" class="alt">
     <div class="wrap">
       <div class="section-head">
-        <span class="ver-pill">v1.3 · 29 Jun 2026</span>
+        <span class="ver-pill">v1.4 · 31 Jul 2026</span>
         <h2>What's new</h2>
-        <p>The biggest update yet — collections, library sorting, an adjustable sleep fade, and dark mode for the reader (plus the mini-player and per-book progress from v1.2).</p>
+        <p>Whole-book progress in Now Playing, a chapter bar on the mini-player, hand-arranged collections, and a prompt to continue to the next book when one finishes.</p>
       </div>
       <div class="grid">
         <div class="card">
-          <span class="ico">📂</span>
-          <h3>Collections</h3>
-          <p>Group your books into folders, each shown as a little shelf of the covers inside. Create one from the <strong>+</strong> button, open it to browse, and add or remove books from a book's detail sheet.</p>
+          <span class="ico">📊</span>
+          <h3>Whole-book progress</h3>
+          <p>The Now Playing scrubber gains a slim bar for how far through the <strong>whole book</strong> you are, plus the time remaining (<code>2h 15m</code>) beside it — alongside the existing chapter-relative scrubber.</p>
         </div>
         <div class="card">
-          <span class="ico">↕️</span>
-          <h3>Sort your library</h3>
-          <p>Order books by <strong>name</strong> or <strong>date added</strong>, ascending or descending — tap the active field again to flip direction. Your choice is remembered across launches.</p>
+          <span class="ico">⏭️</span>
+          <h3>Continue the collection</h3>
+          <p>Finish a book that's in a collection and a sheet slides up offering the <strong>next</strong> (or previous) book by its cover — tap to keep listening. It appears over any screen, even while listening from the mini-player.</p>
         </div>
         <div class="card">
-          <span class="ico">🎚️</span>
-          <h3>Adjustable sleep fade</h3>
-          <p>The sleep-timer fade-out is now a slider — <strong>Off, 10 s, 30 s, 1 min, or 5 min</strong> — so the wind-down matches how you like to drift off.</p>
+          <span class="ico">✋</span>
+          <h3>Arrange a collection by hand</h3>
+          <p>A collection's sort menu gains <strong>Manual</strong>, opening a reorder screen — long-press a book and drag it into any order you like. The arrangement is remembered per collection.</p>
         </div>
         <div class="card">
-          <span class="ico">🌙</span>
-          <h3>Reader dark mode &amp; text size</h3>
-          <p>The EPUB reader gains a light / dark toggle and <strong>A− / A+</strong> text sizing, both remembered across books and launches.</p>
+          <span class="ico">📻</span>
+          <h3>Mini-player chapter bar</h3>
+          <p>The mini-player now shows a second, thinner <strong>chapter-progress</strong> bar above the book-progress bar, so you can see how far through the chapter you are at a glance.</p>
         </div>
         <div class="card">
-          <span class="ico">⏯️</span>
-          <h3>Mini-player &amp; progress <span class="tag create">v1.2</span></h3>
-          <p>A compact playback bar rides along on every screen (play/pause, skips, and a Read button; tap to expand), the library shows a progress bar on each cover, and the player's chapter title doubles as a chapter picker.</p>
+          <span class="ico">🛠️</span>
+          <h3>Polish &amp; fixes</h3>
+          <p>Reopening a finished book restarts it from the beginning, and switching books mid-listen no longer briefly strands the previous book's cover, chapters, or images.</p>
         </div>
       </div>
       <p class="changelog-foot">
-        See the <a href="https://github.com/vibetuned/ln-reader/blob/main/CHANGELOG.md">full changelog</a> for every change, including the v1.2 and v1.0 release notes.
+        See the <a href="https://github.com/vibetuned/ln-reader/blob/main/CHANGELOG.md">full changelog</a> for every change, including the v1.3 and earlier release notes.
       </p>
     </div>
   </section>
@@ -144,7 +144,7 @@
           <ul>
             <li>Import <strong>.m4b</strong> from any SAF source — device storage, Drive, OneDrive, Dropbox…</li>
             <li>Grid of covers, each with a <strong>playback progress bar</strong>; <strong>sort</strong> by name or date added (remembered).</li>
-            <li>Group books into <strong>collections</strong> (folders) with cover-shelf tiles; add / remove from a book's detail sheet.</li>
+            <li>Group books into <strong>collections</strong> (folders) with cover-shelf tiles; add / remove from a book's detail sheet, and <strong>hand-arrange</strong> each one.</li>
             <li>Tap a book to start playing; detail sheet has Open, Read, images, collection, and Remove.</li>
           </ul>
         </div>
@@ -153,9 +153,10 @@
           <h3>Player</h3>
           <ul>
             <li>Foreground media session — background playback from notification &amp; lock screen.</li>
-            <li><strong>Mini-player</strong> on every other screen — play/pause, skips, Read button; tap to expand.</li>
-            <li><strong>Chapter-relative scrubber</strong>; the stacked chapter title / "Chapter N of M" is a tappable chapter picker.</li>
+            <li><strong>Mini-player</strong> on every other screen — play/pause, skips, Read button, chapter + book progress bars; tap to expand.</li>
+            <li><strong>Chapter-relative scrubber</strong> with a whole-book progress bar + time-left; the stacked chapter title / "Chapter N of M" is a tappable chapter picker.</li>
             <li>±10 s / ±30 s skips, prev / next chapter, 0.5×–3× speed; auto-saves and resumes your position.</li>
+            <li><strong>Continue-the-collection</strong> prompt when a collected book finishes — jump to the next or previous by its cover.</li>
           </ul>
         </div>
         <div class="card">

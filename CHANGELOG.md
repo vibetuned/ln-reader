@@ -1,5 +1,47 @@
 # Changelog
 
+## v1.4 — 2026-07-31
+
+Whole-book progress in the player, a chapter bar on the mini-player, manual
+collection ordering, and a continue-to-next prompt at the end of a collection
+book.
+
+### Play Store release notes (≤ 500 chars)
+
+```
+• Now Playing shows whole-book progress on the scrubber — a bar plus the time left (e.g. 2h 15m).
+• The mini-player gains a chapter-progress bar above the book one.
+• Arrange a collection by hand: pick Manual in its sort menu, then drag books into any order.
+• Finish a book in a collection and a prompt offers the next (or previous) book by its cover.
+• Fixes for reopening finished books and switching books mid-listen.
+```
+
+### Player
+- **Whole-book progress on the scrubber** — between the chapter times sits a slim
+  bar for how far through the *whole book* you are, with the time remaining
+  (`Xh Ym`) beside it. Both track the scrubber live as you drag.
+- **Continue the collection** — when a book that's in a collection finishes, a
+  sheet slides up offering the **next** (or previous) book by its cover; tap to
+  keep listening. It's global — it appears over whatever screen you're on,
+  including while listening from the mini-player.
+
+### Mini-player
+- **Chapter progress bar** — a second, thinner bar above the book progress shows
+  how far through the current chapter you are.
+
+### Collections
+- **Manual sort** — a collection's sort menu gains **Manual**, which opens a
+  reorder screen: long-press a book's handle and drag it into any order you like.
+  The arrangement is remembered per collection.
+
+### Fixes
+- **Reopening a finished book restarts it** from the beginning instead of loading
+  at the very end.
+- **No more stranded views** — opening a book while another is playing no longer
+  briefly shows the previous book's cover/chapters, and the Images tab now
+  follows the current book (e.g. after continuing a collection) instead of
+  keeping the finished book's images.
+
 ## v1.3 — 2026-07-24
 
 Adds collections, library sorting, an adjustable sleep-timer fade, and a dark
