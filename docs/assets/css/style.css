@@ -98,7 +98,15 @@ a:hover { text-decoration: underline; }
   gap: 10px;
 }
 .hero-app .hero-icon { margin-bottom: 0; }
-.hero-icon.ios { border-radius: 23.5%; } /* iOS squircle */
+/* iOS squircle. Slightly smaller than the Android tile: the iOS art is
+   full-bleed while the Android icon carries built-in padding — 94px + 5px
+   margins keeps the optical size and the chip baselines matched. */
+.hero-icon.ios {
+  border-radius: 23.5%;
+  width: 94px;
+  height: 94px;
+  margin: 5px;
+}
 .chip {
   font-size: 0.72rem;
   font-weight: 700;
