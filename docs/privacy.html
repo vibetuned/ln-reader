@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Privacy Policy — ln-reader</title>
-  <meta name="description" content="Privacy policy for the ln-reader Android audiobook app. ln-reader collects no personal data and runs entirely on your device." />
+  <meta name="description" content="Privacy policy for the ln-reader audiobook apps for Android, iPhone, and iPad. ln-reader collects no personal data and runs entirely on your device." />
   <link rel="icon" type="image/webp" href="assets/favicon.webp" />
   <link rel="stylesheet" href="assets/css/style.css" />
 </head>
@@ -27,21 +27,23 @@
   <main class="doc">
     <div class="wrap">
       <h1>Privacy Policy</h1>
-      <p class="updated">Last updated: 4 June 2026 · Applies to the <strong>ln-reader</strong> Android app (<code>com.vibetuned.ln_reader</code>)</p>
+      <p class="updated">Last updated: 26 August 2026 · Applies to the <strong>ln-reader</strong> apps for
+        Android (<code>com.vibetuned.ln_reader</code>) and iPhone / iPad (<code>com.vibetuned.lnreader</code>)</p>
 
       <div class="callout">
         <p>
           <strong>Short version:</strong> ln-reader collects nothing about you. There are no
-          accounts, no analytics, no ads, and no tracking. Everything you import and every
-          position you save stays on your device.
+          accounts, no analytics, no ads, and no tracking — on any platform. Everything you
+          import and every position you save stays on your device.
         </p>
       </div>
 
       <h2>1. Who we are</h2>
       <p>
         ln-reader ("the app") is developed by <strong>vibetuned</strong> ("we", "us"). It is an
-        offline Android audiobook player for <code>.m4b</code> files. This policy explains what
-        the app does and does not do with your information.
+        offline audiobook player for <code>.m4b</code> files, available for Android and for
+        iPhone / iPad. This policy covers both apps and explains what they do and do not do
+        with your information.
       </p>
 
       <h2>2. Data we collect</h2>
@@ -59,43 +61,54 @@
       <ul>
         <li><strong>Imported audiobooks</strong> — the <code>.m4b</code> files (and optional EPUB and sync-manifest companions) you add, plus extracted metadata such as title, author, chapters, cover, and embedded images.</li>
         <li><strong>Reading positions and library state</strong> — your current position per book and your list of imported books, kept in the app's local database.</li>
-        <li><strong>Settings</strong> — preferences such as your chosen download location, playback speed, and sleep-timer options.</li>
+        <li><strong>Settings</strong> — preferences such as your chosen download location, playback speed, reader appearance, and sleep-timer options.</li>
       </ul>
       <p>
-        This data never leaves your device. Uninstalling the app removes it (see Android Auto
-        Backup below).
+        This data never leaves your device. Uninstalling the app removes it (see Device backups
+        below).
       </p>
 
       <h2>4. Permissions and why we use them</h2>
+      <p><strong>On Android:</strong></p>
       <ul>
         <li><strong>Internet</strong> — used <em>only</em> to copy an audiobook from a cloud source you explicitly choose (e.g. Google Drive, OneDrive) into local storage during import. The app makes no other network connections and sends no data to us or any third party.</li>
         <li><strong>Foreground service / media playback</strong> — lets playback continue in the background with controls in the system media notification and lock screen.</li>
         <li><strong>Post notifications</strong> — shows the media-playback notification and sleep-timer notifications.</li>
         <li><strong>Wake lock</strong> — keeps the device awake enough to continue playing audio while the screen is off.</li>
       </ul>
+      <p><strong>On iPhone / iPad:</strong></p>
+      <ul>
+        <li><strong>Background audio</strong> — the standard iOS background-audio mode lets playback continue with the screen off, with controls on the lock screen and in Control Center.</li>
+        <li><strong>Notifications</strong> (optional) — asked for once, only to show the sleep-timer "expired" notification with its Postpone / Dismiss actions. The app works fully if you decline.</li>
+        <li><strong>Motion</strong> — the accelerometer is read <em>only</em> while a sleep-timer notification is pending, to support shake-to-postpone. Motion data is used in the moment and never stored or transmitted.</li>
+        <li>The iOS app makes <strong>no network connections at all</strong>; cloud files you pick arrive through Apple's Files app and its providers.</li>
+      </ul>
 
       <h2>5. File access</h2>
       <p>
-        The app uses Android's Storage Access Framework (SAF). You pick the files and folders
-        you want to import; the app only accesses what you explicitly select. It does not scan
-        your device storage or browse files on its own.
+        On Android the app uses the Storage Access Framework (SAF); on iPhone / iPad it uses the
+        system document picker (the Files app). Either way, you pick the files you want to
+        import and the app only accesses what you explicitly select — it copies your selection
+        into its own private storage and never scans or browses your files on its own.
       </p>
 
       <h2>6. Third parties</h2>
       <p>
-        The app contains <strong>no advertising, analytics, crash-reporting, or tracking
-        SDKs</strong>. When you import a file from a cloud provider (such as Google Drive or
-        OneDrive), that transfer is handled by Android and the provider you chose, under their
-        own privacy policies. We are not involved in and do not receive anything from that
-        transfer beyond the file you selected.
+        The apps contain <strong>no advertising, analytics, crash-reporting, or tracking
+        SDKs</strong>. When you import a file from a cloud provider (such as Google Drive,
+        OneDrive, or iCloud Drive), that transfer is handled by your platform (Android's SAF or
+        Apple's Files app) and the provider you chose, under their own privacy policies. We are
+        not involved in and do not receive anything from that transfer beyond the file you
+        selected.
       </p>
 
-      <h2>7. Android Auto Backup</h2>
+      <h2>7. Device backups</h2>
       <p>
-        The app allows Android's standard Auto Backup. If you have device backup enabled, Android
-        may back up the app's data to <em>your own</em> Google account. This is a function of
-        your device and Google account, governed by Google's privacy policy — not something we
-        operate or can access.
+        The apps allow the platforms' standard backups. On Android, Auto Backup may back the
+        app's data up to <em>your own</em> Google account; on iPhone / iPad, the app's data may
+        be included in <em>your own</em> iCloud or computer backups. These are functions of your
+        device and your Google / Apple account, governed by their privacy policies — not
+        something we operate or can access.
       </p>
 
       <h2>8. Children's privacy</h2>
