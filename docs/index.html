@@ -30,7 +30,16 @@
 
   <header class="hero">
     <div class="wrap">
-      <img class="hero-icon" src="assets/icon.webp" alt="Lectures and Narrations app icon" />
+      <div class="hero-icons">
+        <div class="hero-app">
+          <img class="hero-icon" src="assets/icon.webp" alt="ln-reader for Android app icon" />
+          <span class="chip chip-android">Android</span>
+        </div>
+        <div class="hero-app">
+          <img class="hero-icon ios" src="assets/icon-ios.jpg" alt="ln-reader for iPhone and iPad app icon" />
+          <span class="chip chip-ios">iPhone &amp; iPad</span>
+        </div>
+      </div>
       <p class="eyebrow">Lectures and Narrations</p>
       <h1>Audiobooks that read along with you.</h1>
       <p class="tagline">
@@ -47,8 +56,8 @@
       </div>
       <div class="badge-row">
         <span class="badge">★ Now on Google Play · v1.4</span>
-        <span class="badge">Android 13+</span>
-        <span class="badge"> iPhone &amp; iPad — coming to the App&nbsp;Store</span>
+        <span class="badge badge-android">Native Android · Kotlin + Jetpack Compose · 13+</span>
+        <span class="badge badge-ios">Native iOS · Swift + SwiftUI · 17+ — App&nbsp;Store soon</span>
         <span class="badge">100% on-device</span>
       </div>
     </div>
@@ -120,9 +129,11 @@
         <div class="card">
           <h3>ln-reader <span class="tag consume">The Consumer</span></h3>
           <p>
-            Custom apps for Android and for iPhone / iPad, built specifically to play these
-            enhanced audiobooks. Chapter-relative scrubbing, sleep timers, and an EPUB
-            companion reader that automatically highlights the text in sync with the audio.
+            <strong>Two fully native apps</strong> built specifically to play these enhanced
+            audiobooks — <span class="plat android">Kotlin + Jetpack Compose</span> on Android,
+            and a ground-up port in <span class="plat ios">Swift + SwiftUI</span> on
+            iPhone / iPad. Same features, same files: chapter-relative scrubbing, sleep
+            timers, and the EPUB reader that highlights the text in sync with the audio.
           </p>
           <a class="card-link" href="https://play.google.com/store/apps/details?id=com.vibetuned.ln_reader">Get it on Google Play →</a><br />
           <a class="card-link" href="https://github.com/vibetuned/ln-reader-ios">The iOS app on GitHub — App&nbsp;Store release coming soon →</a>

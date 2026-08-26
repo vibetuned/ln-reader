@@ -82,6 +82,47 @@ a:hover { text-decoration: underline; }
   box-shadow: var(--shadow);
   margin-bottom: 22px;
 }
+
+/* Two native apps: Android + iOS icons side by side with platform chips. */
+.hero-icons {
+  display: flex;
+  gap: 30px;
+  justify-content: center;
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+.hero-app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.hero-app .hero-icon { margin-bottom: 0; }
+.hero-icon.ios { border-radius: 23.5%; } /* iOS squircle */
+.chip {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 3px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.chip-android {
+  color: #3ddc84;
+  background: rgba(61, 220, 132, 0.10);
+  border-color: rgba(61, 220, 132, 0.35);
+}
+.chip-ios {
+  color: #409cff;
+  background: rgba(10, 132, 255, 0.12);
+  border-color: rgba(10, 132, 255, 0.40);
+}
+.badge-android { color: #3ddc84; border-color: rgba(61, 220, 132, 0.35); }
+.badge-ios { color: #409cff; border-color: rgba(10, 132, 255, 0.40); }
+.plat { font-weight: 600; white-space: nowrap; }
+.plat.android { color: #3ddc84; }
+.plat.ios { color: #409cff; }
+
 .hero h1 {
   font-size: clamp(2.2rem, 5vw, 3.4rem);
   line-height: 1.08;
