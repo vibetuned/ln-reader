@@ -88,11 +88,13 @@ fun MiniPlayerBar(
                 LinearProgressIndicator(
                     progress = { chapterFraction(chapters, nowPlaying.positionMs, nowPlaying.durationMs) },
                     color = MaterialTheme.colorScheme.tertiary,
+                    drawStopIndicator = {},
                     modifier = Modifier.fillMaxWidth().height(2.dp)
                 )
             }
             LinearProgressIndicator(
                 progress = { bookFraction },
+                drawStopIndicator = {},
                 modifier = Modifier.fillMaxWidth().height(2.dp)
             )
             Row(

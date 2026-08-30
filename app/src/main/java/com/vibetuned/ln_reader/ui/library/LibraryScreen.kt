@@ -346,6 +346,7 @@ private fun ImportProgressBanner(
             if (determinate) {
                 LinearProgressIndicator(
                     progress = { (read.toFloat() / total).coerceIn(0f, 1f) },
+                    drawStopIndicator = {},
                     modifier = Modifier.fillMaxWidth()
                 )
             } else {
@@ -573,6 +574,7 @@ private fun BookCard(book: Book, progress: Float, onClick: () -> Unit) {
             // Playback progress through the book, sitting flush between the cover and the title.
             LinearProgressIndicator(
                 progress = { progress },
+                drawStopIndicator = {},
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(4.dp)

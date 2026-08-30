@@ -16,8 +16,8 @@ android {
         applicationId = "com.vibetuned.ln_reader"
         minSdk = 33
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.4"
+        versionCode = 6
+        versionName = "1.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -86,6 +86,10 @@ dependencies {
     implementation(libs.androidx.media3.session)
     implementation(libs.androidx.media3.ui)
     implementation(libs.androidx.media3.common)
+    implementation(libs.androidx.media3.cast)
+    implementation(libs.androidx.mediarouter)
+    implementation(libs.play.services.cast.framework)
+    implementation(libs.nanohttpd)
 
     implementation(libs.coil.compose)
 

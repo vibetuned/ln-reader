@@ -24,6 +24,8 @@ An Android audiobook player for `.m4b` files, focused on audiobooks. Available o
 - Foreground media session — keeps playing in the background, controllable from the system media notification and lock screen.
 - **Mini-player** above the bottom nav on every screen except the full player — cover, title, ±10 s / 30 s skips, play / pause, a Read button (when the book has an EPUB), and stacked **chapter + whole-book progress bars**; tap it to open the full player.
 - Now-playing screen with cover, **chapter-relative scrubber** (shows time-in-chapter, not whole-book) plus a **whole-book progress bar and time-left** between the chapter times, and a **tappable chapter selector** (chapter title over "Chapter N of M") that opens the chapter list.
+- **Chromecast** — a Cast button in the player top bar streams the current book to any Google Cast device (Google's default receiver shows cover, title and transport on the TV). The phone serves the audio over the local network, so both devices must share a Wi-Fi. Sleep timer, reader auto-follow and position saving keep working while casting; disconnecting hands playback back to the phone at the same position, paused.
+- Top bar keeps Cast, Read and the sleep timer as icons; playback speed, chapters and images live in an overflow (⋮) menu.
 - Transport: ±10 s / ±30 s skips, previous / next chapter, play / pause.
 - Playback speed presets from 0.5× to 3×, pitch-preserving.
 - Chapter list bottom sheet, auto-scrolls to the current chapter.
@@ -41,7 +43,7 @@ An Android audiobook player for `.m4b` files, focused on audiobooks. Available o
   - **Time** — 5 / 15 / 30 / 45 / 60 / 90 min presets. The countdown freezes when you manually pause and resumes when you press play.
   - **Chapters** — "end of current chapter" or +2 / +3 / +5 chapters from your position.
 - Adjustable volume fade-out at the tail — Off / 10 s / 30 s / 1 min / 5 min.
-- When the timer fires it pauses playback and posts a notification with **Postpone** (restart the same timer) and **Dismiss** actions.
+- When the timer fires it pauses playback and posts a notification with **Postpone** (restart the same timer) and **Dismiss** actions — and, if the app is open, an **in-app dialog** with the same actions over whatever screen is showing.
 - **Shake-to-postpone** while the expired-state notification is up — accelerometer-driven, ignored when the timer isn't pending.
 - Reachable from the player's top bar (bottom sheet) or the bottom-nav Timer tab (full screen).
 
@@ -53,7 +55,7 @@ An Android audiobook player for `.m4b` files, focused on audiobooks. Available o
 
 ### EPUB companion + sync
 Each book can have two optional companions, attached from its detail sheet:
-- **EPUB** — a built-in WebView reader, reachable from the player top bar or the book's "Read" button. Manual page turning, with **light / dark mode** and **adjustable text size** (both remembered across books).
+- **EPUB** — a built-in WebView reader, reachable from the player top bar or the book's "Read" button. Manual page turning, with **light / dark mode**, **adjustable text size** (both remembered across books), and **whole-book text search** — results by page with the match bolded; tapping one jumps there, highlights every occurrence, and arrows step through matches across pages.
 - **Sync manifest** (`sync_manifest.json`) — ties audio timestamps to EPUB beats and illustration positions.
 
 What they unlock, depending on what's attached:
@@ -70,19 +72,22 @@ What they unlock, depending on what's attached:
 
 ## Requirements
 
-- Android 13 or newer (minSdk 33, targetSdk 36).
+- Android 13 or newer (minSdk 33, targetSdk 36). The app is **portrait-only**.
 - A file manager / cloud app that exposes a `DocumentsProvider` for the source of your `.m4b` files. Google Drive, OneDrive, the system Files app, and most third-party file managers work.
+- Casting (optional) needs Google Play services on the phone and a Google Cast device on the **same Wi-Fi network**.
 
 ## Constraints / known limits
 
 - **Drive folder picking does not work** for the download-location setting. Google removed `ACTION_OPEN_DOCUMENT_TREE` support from the Drive Android app. Single-file picking from Drive still works (that's the import flow).
-- **No reading-position sync across devices.** A SAF-based sync feature was prototyped and removed; see [design.md](design.md).
+- **No reading-position sync across devices.** A SAF-based sync feature was prototyped and removed; see [DESIGN.md](DESIGN.md).
 - **No streaming** — cloud books are fully downloaded at import time. A 300 MB audiobook takes the time the import bar shows, and uses 300 MB of local storage until you remove the book.
 - **Chapter parsing is Nero `chpl` only** (the format most m4b creators write). Files that store chapters as a QuickTime text track will load but show an empty chapter list.
 - The first embedded image (`covr` data atom) is treated as the cover. Other embedded images are exposed in the viewer but not tied to specific chapters.
 - **Scrubber image markers are matched to embedded m4b images by ordinal index** (1st manifest image ↔ 1st embedded image, …). A marker only appears if the m4b actually has an image at that index; manifest `src` paths are not resolved from the EPUB.
 - **Reader highlighting needs matching spans.** The EPUB must contain `<span class="lnvox-beat" data-beat-id="…">` elements whose ids match the sync manifest; beats without a matching span just don't highlight (no error).
 - Reader dark mode themes via injected CSS; an EPUB with hard-coded colours or a background image may not fully darken.
+- **Casting uses Google's default receiver** (stock TV playback screen, no custom branding). Receivers cap playback speed at 0.5×–2×, and the phone must stay on the shared Wi-Fi while casting — it's the media server.
+- **Reader search decodes the common HTML entities**; a match containing an exotic named entity inside the word may not be found.
 - **Re-importing the same file creates a duplicate book** (UUID-keyed library, no content hashing).
 - **No resume for interrupted downloads.** If you kill the app mid-download, the partial file is cleaned up and you need to re-import.
 - **Single-device only.** The app stores everything in its own database / file storage; uninstalling drops your library and saved positions.
@@ -97,5 +102,5 @@ JDK 21 required. From the project root:
 
 The debug APK lands in `app/build/outputs/apk/debug/`. Install with `adb install`.
 
-Architecture, design decisions, and tooling quirks live in [design.md](design.md).
+Architecture, design decisions, and tooling quirks live in [DESIGN.md](DESIGN.md).
 Per-release notes live in [CHANGELOG.md](CHANGELOG.md).

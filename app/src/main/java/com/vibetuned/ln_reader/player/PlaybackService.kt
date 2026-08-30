@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.cast.CastPlayer
+import androidx.media3.cast.SessionAvailabilityListener
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -47,7 +49,13 @@ private const val ACTION_SLEEP_EOC = "com.vibetuned.ln_reader.action.SLEEP_EOC"
 class PlaybackService : MediaSessionService() {
 
     private lateinit var player: ExoPlayer
+    private var castPlayer: CastPlayer? = null
+    private var castMediaServer: CastMediaServer? = null
     private var session: MediaSession? = null
+
+    /** Whichever player the session is currently driving — local ExoPlayer or the cast player. */
+    private val activePlayer: Player
+        get() = session?.player ?: player
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var positionSaveJob: Job? = null
@@ -70,7 +78,7 @@ class PlaybackService : MediaSessionService() {
             .setSeekForwardIncrementMs(SKIP_FORWARD_MS)
             .build()
 
-        player.addListener(object : Player.Listener {
+        val positionSaverListener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (isPlaying) startPositionSaver(container.positionRepository)
                 else {
@@ -78,11 +86,63 @@ class PlaybackService : MediaSessionService() {
                     saveCurrentPosition(container.positionRepository)
                 }
             }
-        })
+        }
+        player.addListener(positionSaverListener)
 
         session = MediaSession.Builder(this, player)
             .setCallback(LnReaderSessionCallback(container, buildCustomLayout()))
             .build()
+
+        setUpCast(container, positionSaverListener)
+    }
+
+    /**
+     * Google Cast: when a cast session starts, the media server is brought up (the receiver
+     * fetches the m4b from it over the LAN) and the session is handed the [CastPlayer]; when it
+     * ends, playback moves back to the local player — paused, so the phone doesn't suddenly start
+     * talking — and the server shuts down. Skipped entirely on devices without Play Services.
+     */
+    private fun setUpCast(container: AppContainer, positionSaverListener: Player.Listener) {
+        val castContext = CastSupport.castContextOrNull(this) ?: return
+        val server = CastMediaServer(this, container.bookRepository)
+        castMediaServer = server
+        val cast = CastPlayer(
+            castContext,
+            CastMediaItemConverter(server),
+            SKIP_BACK_MS,
+            SKIP_FORWARD_MS
+        )
+        cast.addListener(positionSaverListener)
+        cast.setSessionAvailabilityListener(object : SessionAvailabilityListener {
+            override fun onCastSessionAvailable() {
+                runCatching { server.startIfNeeded() }
+                switchSessionPlayer(cast, pauseAfterSwitch = false)
+            }
+
+            override fun onCastSessionUnavailable() {
+                switchSessionPlayer(player, pauseAfterSwitch = true)
+                server.stopIfRunning()
+            }
+        })
+        castPlayer = cast
+    }
+
+    /** Moves the current item, position, and play state onto [newPlayer] and rebinds the session. */
+    private fun switchSessionPlayer(newPlayer: Player, pauseAfterSwitch: Boolean) {
+        val session = session ?: return
+        val oldPlayer = session.player
+        if (oldPlayer === newPlayer) return
+        val item = oldPlayer.currentMediaItem
+        val position = oldPlayer.currentPosition
+        val playWhenReady = oldPlayer.playWhenReady && !pauseAfterSwitch
+        oldPlayer.stop()
+        oldPlayer.clearMediaItems()
+        if (item != null) {
+            newPlayer.setMediaItem(item, position)
+            newPlayer.playWhenReady = playWhenReady
+            newPlayer.prepare()
+        }
+        session.player = newPlayer
     }
 
     /**
@@ -112,7 +172,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onTaskRemoved(rootIntent: android.content.Intent?) {
         // If the user swipes the app away while paused, tear down. If playing, keep going.
-        if (!player.playWhenReady || player.mediaItemCount == 0) {
+        if (!activePlayer.playWhenReady || activePlayer.mediaItemCount == 0) {
             stopSelf()
         }
         super.onTaskRemoved(rootIntent)
@@ -120,11 +180,14 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         stopPositionSaver()
+        castPlayer?.setSessionAvailabilityListener(null)
+        castMediaServer?.stopIfRunning()
         session?.run {
-            player.release()
             release()
             session = null
         }
+        castPlayer?.release()
+        player.release()
         serviceScope.cancel()
         super.onDestroy()
     }
@@ -145,8 +208,8 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun saveCurrentPosition(positionRepository: PositionRepository) {
-        val bookId = player.currentMediaItem?.mediaId?.takeIf { it.isNotEmpty() } ?: return
-        val pos = player.currentPosition
+        val bookId = activePlayer.currentMediaItem?.mediaId?.takeIf { it.isNotEmpty() } ?: return
+        val pos = activePlayer.currentPosition
         if (pos < 0) return
         serviceScope.launch { positionRepository.save(bookId, pos) }
     }

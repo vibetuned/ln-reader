@@ -4,9 +4,10 @@
 
 | Concern | Choice |
 | --- | --- |
-| Build | AGP 9.2.1, Gradle 9.4.1, JDK 21, Kotlin (AGP-bundled) |
+| Build | AGP 9.3.2, Gradle 9.5, JDK 21, Kotlin 2.2.10 |
 | UI | Jetpack Compose + Material 3, single Activity, Compose Navigation |
-| Playback | Media3 / ExoPlayer (`MediaSessionService`) |
+| Playback | Media3 / ExoPlayer (`MediaSessionService`); Media3 `CastPlayer` while casting |
+| Casting | Google Cast framework (default receiver) + embedded NanoHTTPD serving the m4b over LAN |
 | Persistence | Room (current version 5), DataStore Preferences |
 | Image loading | Coil 3 |
 | EPUB reader | `androidx.webkit` WebView + `WebViewAssetLoader` |
@@ -18,7 +19,8 @@
 ```
 com.vibetuned.ln_reader
 ├── LnReaderApplication            owns the AppContainer
-├── MainActivity                   sets Compose content, requests POST_NOTIFICATIONS
+├── MainActivity                   sets Compose content, requests POST_NOTIFICATIONS;
+│                                   a FragmentActivity (Cast dialogs) locked to portrait
 ├── di/AppContainer                lazy singletons: DB, repos, parser, player, sleep timer, prefs
 ├── data/
 │   ├── db/                        Room: BookEntity, ChapterEntity, PositionEntity,
@@ -30,9 +32,12 @@ com.vibetuned.ln_reader
 │   └── repo/                      BookRepository, CollectionRepository, PositionRepository,
 │                                   CollectionOrdering (shared sort/manual), (+ Mappers)
 ├── m4b/                           Custom MP4 atom parser (M4bSource, AtomReader, M4bParser)
-├── companion/                     EpubBook (unzip + OPF spine), SyncManifest (+ parser)
+├── companion/                     EpubBook (unzip + OPF spine), SyncManifest (+ parser),
+│                                   EpubTextSearch (whole-book search)
 ├── player/                        PlaybackService, PlayerHolder, SleepTimer*, ShakeDetector,
-│                                   PostponeReceiver, SleepTimerNotifier, CollectionAdvanceController
+│                                   PostponeReceiver, SleepTimerNotifier, CollectionAdvanceController,
+│                                   Cast* (CastSupport, CastOptionsProvider, CastMediaServer,
+│                                   CastMediaItemConverter)
 └── ui/
     ├── common/                    PlaceholderScreen, appContainer() composable
     ├── library/                   LibraryScreen (library + collection views) + BookDetailSheet
@@ -41,9 +46,11 @@ com.vibetuned.ln_reader
     ├── player/                    PlayerScreen + MiniPlayer + ContinueCollectionSheet + ChapterListSheet
     │                              + SpeedSheet + SleepTimerSheet + PlayerViewModel
     ├── reader/                    ReaderScreen + ReaderViewModel (EPUB WebView + beat sync, light/dark + text zoom)
+    │                              + ReaderSearch (search bar, results list, highlight JS)
     ├── settings/                  SettingsScreen + SettingsViewModel
     ├── theme/                     Color / Theme / Type (Material 3 dynamic color)
     ├── timer/                     TimerScreen + TimerControls + TimerViewModel
+    │                              + SleepTimerExpiredDialog (global expiry prompt)
     └── viewer/                    ViewerScreen + FullScreenImageViewer + ViewerViewModel
 ```
 
@@ -219,6 +226,33 @@ Parses `sync_manifest.json` (via `org.json`) into:
 
 Entry points: the player top-bar book icon (enabled when `book.hasEpub`) and the `BookDetailSheet` "Read" button. Route `reader?bookId={bookId}`.
 
+### Reader text search (`companion/EpubTextSearch.kt` + `ui/reader/ReaderSearch.kt`)
+
+Whole-book search runs in two halves that **must count matches identically**,
+because a result is addressed as "the k-th occurrence on page N":
+
+- **Kotlin half** (`EpubTextSearch`, pure + unit-tested): reads each spine XHTML
+  from the extracted EPUB dir and reduces it to the same text the browser DOM
+  exposes — head/script/style/comments dropped, tags removed *with no implied
+  separator* (so `wo<i>rd</i>` is "word"), common entities decoded. Matching is
+  case-insensitive with whitespace runs (NBSP included — Java's `\s` doesn't
+  match it, so the pattern names it) collapsing to a single query space.
+  Produces snippets with the match range marked, capped at 500 results.
+- **JS half** (`searchHighlightJs`): once the target page loads, injected JS
+  walks the body's text nodes, searches their concatenation with the equivalent
+  regex (built by `EpubTextSearch.jsPattern` — Kotlin's `Regex.escape` emits
+  `\Q…\E`, which JS doesn't understand, hence a separate escaper), and wraps
+  each match's per-node slices in highlight spans — processed strictly
+  right-to-left so earlier offsets stay valid as `surroundContents` splits the
+  nodes. The k-th match gets the "current" class and is scrolled to center.
+  Cleanup unwraps the spans and `normalize()`s the parents.
+
+State lives in `ReaderUiState` (`searchActive`, results, selection,
+`searchTarget`); jumping to a result reuses the ordinary `currentIndex` page
+navigation and disengages auto-follow, exactly like manual paging. Known limit:
+only common named entities are decoded, so a match containing an exotic entity
+inside the word is missed on both sides alike (never mis-highlighted).
+
 ## Import flow
 
 ```
@@ -253,6 +287,8 @@ Lives in two halves:
 
 `MediaSessionService` with an `ExoPlayer` configured for spoken-word audio (`C.AUDIO_CONTENT_TYPE_SPEECH`, `setHandleAudioBecomingNoisy(true)`). On every play / pause transition it saves the current position to `PositionRepository`; while playing, a 5 s loop saves periodically. The `onTaskRemoved` override tears the service down only if nothing is loaded or playback is paused — so swiping the app away while listening keeps the audio going.
 
+The session's player is not fixed: while a Cast session is active the service swaps `session.player` to a `CastPlayer` and back (see [Google Cast](#google-cast)). Anything that needs "the player" inside the service goes through the `activePlayer` accessor (`session.player`), and the position-saver listener is attached to both players.
+
 ### UI half (`ui/player/`)
 
 The UI never talks to the service or the player directly. Instead `PlayerHolder` (process-scoped, lives in `AppContainer`) holds a `ListenableFuture<MediaController>` that's connected once and reused everywhere. The `MediaController.controller: StateFlow<MediaController?>` flips from null to non-null when the session binding completes.
@@ -276,6 +312,53 @@ The scrubber works in chapter-local coordinates: the slider's value range is the
 
 **Resume on launch.** On a fresh process, `MainActivity` reads `PositionRepository.lastPlayedBookId()` and navigates to the player **paused** at the saved position. The once-per-launch guard is `AppContainer.lastBookRestoreHandled` (process-scoped) rather than `rememberSaveable`, which survives process death and would wrongly skip the reopen after the OS evicts the app.
 
+## Google Cast
+
+Casting reuses the whole media-session architecture instead of bypassing it: the
+UI keeps talking to its `MediaController`, and only the player behind the
+session changes.
+
+- **Receiver**: Google's **Default Media Receiver** (no Cast Developer Console
+  registration). This is a constraint, not a preference — the console's $5
+  registration payment flow was broken when the feature shipped. The pipeline is
+  receiver-agnostic; a styled receiver later is a one-constant swap in
+  `CastOptionsProvider`.
+- **Player swap** (`PlaybackService`): a `CastPlayer` (same 10 s / 30 s seek
+  increments) is created when `CastSupport` can obtain a `CastContext` — on
+  devices without Play services it can't, and the feature vanishes without
+  side effects. A `SessionAvailabilityListener` moves the current item, position
+  and play-state onto the cast player when a session starts, and back onto
+  ExoPlayer when it ends — **paused**, so the phone doesn't start talking the
+  moment the TV lets go.
+- **Serving local files** (`CastMediaServer`): a receiver fetches media itself
+  over HTTP and can't read the phone's file/content URIs, so while a cast
+  session is active the service runs an embedded NanoHTTPD server.
+  `/t/<token>/book/<bookId>` streams the m4b **with HTTP Range support**
+  (required for seeking on the receiver) from either a `content://` or file
+  source; `/t/<token>/cover/<bookId>` serves the cover for the TV screen. The
+  random per-process token keeps other devices on the LAN from browsing the
+  library; the port is OS-assigned; the base URL uses the phone's site-local
+  IPv4, so casting requires both devices on one Wi-Fi.
+- **URL rewriting** (`CastMediaItemConverter`): the app keeps local URIs in
+  every `MediaItem`. The converter swaps in the server URL (+ `audio/mp4` MIME,
+  required by the Cast queue) only in the outgoing `MediaInfo`, while the
+  round-trip payload (`customData`, built by `DefaultMediaItemConverter`)
+  carries the *original* item — so when the timeline item comes back after the
+  session ends, ExoPlayer gets the local URI directly and nothing depends on
+  the server that's shutting down. `mediaId` survives the round trip, which is
+  what keeps position saving and the sleep timer's chapter mode working while
+  casting.
+- **UI requirements — both learned from launch crashes**: `MediaRouteButton`
+  and the device-chooser dialog resolve **AppCompat theme attributes from the
+  activity**, so `Theme.Lnreader` parents `Theme.AppCompat.NoActionBar` (not
+  `android:Theme.Material.*`); and the chooser is a `DialogFragment`, so
+  `MainActivity` must be a `FragmentActivity`. Neither requirement is
+  discoverable at compile time — both fail at runtime with obscure errors
+  (`background can not be translucent: #0`, "activity must be a subclass of
+  FragmentActivity").
+- **Known limits**: receivers cap playback speed at 0.5×–2×; the sleep-timer
+  fade adjusts the receiver's stream volume rather than a local ramp.
+
 ## Sleep timer
 
 `SleepTimerController` is process-scoped (a peer of `PlayerHolder` in `AppContainer`) and drives playback through the same `MediaController` the UI uses — no extra plumbing across the service boundary.
@@ -296,6 +379,8 @@ When the timer fires:
 4. `ShakeDetector.start()` registers a sensor listener (prefers `TYPE_LINEAR_ACCELERATION`, falls back to `TYPE_ACCELEROMETER` with a low-pass gravity filter). Magnitude > 13 m/s² with a 1.2 s cooldown counts as a shake → `postpone()`.
 
 `postpone()` clears the expired state, calls `controller.play()`, and re-arms the same config. `dismissExpired()` clears state + notification + sensor without restarting.
+
+When the app is in the foreground, the expired state also surfaces as a dialog: `SleepTimerExpiredHost` (rendered once in `MainActivity`, the same global-host pattern as `ContinueCollectionHost`) collects `expiredConfig` with `collectAsStateWithLifecycle` — lifecycle-aware collection is what makes it foreground-only for free — and shows an `AlertDialog` with the same Postpone / Dismiss actions. All surfaces (dialog, notification, shake, timer-screen card) drive the same controller state, so acting on any one clears the rest.
 
 ## Storage layout
 

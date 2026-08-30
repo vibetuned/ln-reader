@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -35,8 +35,11 @@ import com.vibetuned.ln_reader.ui.navigation.TopLevelDestination
 import com.vibetuned.ln_reader.ui.player.ContinueCollectionHost
 import com.vibetuned.ln_reader.ui.player.MiniPlayerBar
 import com.vibetuned.ln_reader.ui.theme.LnReaderTheme
+import com.vibetuned.ln_reader.ui.timer.SleepTimerExpiredHost
 
-class MainActivity : ComponentActivity() {
+// FragmentActivity (a ComponentActivity subclass) rather than ComponentActivity: the Cast button's
+// device chooser is a DialogFragment, and MediaRouteButton refuses to show it from anything else.
+class MainActivity : FragmentActivity() {
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* result ignored */ }
@@ -155,4 +158,8 @@ private fun LnReaderApp() {
     // Global end-of-book prompt: offers to continue to the next/previous book when a book inside a
     // collection finishes, over whatever screen is showing.
     ContinueCollectionHost()
+
+    // Global sleep-timer prompt: when the timer fires while the app is in the foreground, offers
+    // Postpone/Dismiss as a dialog instead of relying on the silent notification.
+    SleepTimerExpiredHost()
 }

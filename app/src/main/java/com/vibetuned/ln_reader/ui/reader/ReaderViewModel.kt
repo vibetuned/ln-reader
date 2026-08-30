@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.media3.session.MediaController
 import com.vibetuned.ln_reader.companion.EpubReader
+import com.vibetuned.ln_reader.companion.EpubTextSearch
 import com.vibetuned.ln_reader.companion.SyncManifest
 import com.vibetuned.ln_reader.companion.SyncManifestParser
 import com.vibetuned.ln_reader.data.prefs.ReaderPreferences
@@ -36,6 +37,7 @@ class ReaderViewModel(
     private var bookId: String? = null
     private var manifest: SyncManifest? = null
     private var spinePaths: List<String> = emptyList()
+    private var epubRootDir: File? = null
 
     init {
         playerHolder.connect()
@@ -81,9 +83,9 @@ class ReaderViewModel(
                 _state.update { it.copy(isLoading = false, error = "No EPUB attached to this book.") }
                 return@launch
             }
+            val rootDir = File(appContext.filesDir, "epubs/$id")
             val result = runCatching {
                 withContext(Dispatchers.IO) {
-                    val rootDir = File(appContext.filesDir, "epubs/$id")
                     EpubReader.ensureExtracted(File(epubPath), rootDir)
                     EpubReader.parse(rootDir)
                 }
@@ -98,8 +100,9 @@ class ReaderViewModel(
                 withContext(Dispatchers.IO) { SyncManifestParser.parse(File(it)) }
             }
             spinePaths = epub.spine.map { it.rootRelativePath }
+            epubRootDir = rootDir
             _state.update {
-                it.copy(
+                it.withSearchCleared().copy(
                     isLoading = false,
                     bookTitle = detail.book.title,
                     spine = epub.spine.map { s -> ReaderPage(s.rootRelativePath, s.url) },
@@ -151,6 +154,64 @@ class ReaderViewModel(
                 currentIndex = if (cur.autoFollow && idx >= 0) idx else cur.currentIndex
             )
         }
+    }
+
+    fun openSearch() = _state.update {
+        it.copy(searchActive = true, showSearchResults = it.searchResults != null)
+    }
+
+    fun closeSearch() = _state.update { it.withSearchCleared() }
+
+    fun setSearchQuery(query: String) = _state.update { it.copy(searchQuery = query) }
+
+    fun hideSearchResults() = _state.update { it.copy(showSearchResults = false) }
+
+    fun showSearchResults() = _state.update { it.copy(showSearchResults = true) }
+
+    fun submitSearch() {
+        val query = _state.value.searchQuery
+        val rootDir = epubRootDir ?: return
+        val paths = spinePaths
+        val jsPattern = EpubTextSearch.jsPattern(query) ?: return
+        if (paths.isEmpty()) return
+        viewModelScope.launch {
+            // Clearing the target also makes the WebView drop highlights from the previous query.
+            _state.update {
+                it.copy(
+                    isSearching = true,
+                    showSearchResults = true,
+                    searchSelection = null,
+                    searchTarget = null,
+                    searchPatternJs = jsPattern
+                )
+            }
+            val matches = withContext(Dispatchers.IO) {
+                EpubTextSearch.search(rootDir, paths, query)
+            }
+            // The user may have edited the query and resubmitted while this scan ran.
+            if (_state.value.searchQuery != query) return@launch
+            _state.update { it.copy(isSearching = false, searchResults = matches) }
+        }
+    }
+
+    fun openSearchResult(index: Int) {
+        val current = _state.value
+        val result = current.searchResults?.getOrNull(index) ?: return
+        val pattern = current.searchPatternJs ?: return
+        _state.update {
+            it.copy(
+                currentIndex = result.spineIndex,
+                autoFollow = false,
+                showSearchResults = false,
+                searchSelection = index,
+                searchTarget = SearchTarget(result.spineIndex, result.occurrence, pattern)
+            )
+        }
+    }
+
+    fun stepSearchResult(delta: Int) {
+        val selection = _state.value.searchSelection ?: return
+        openSearchResult(selection + delta)
     }
 
     fun toggleDarkMode() {

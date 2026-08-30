@@ -1,7 +1,7 @@
 [versions]
-agp = "9.2.1"
-kotlin = "2.1.20"
-ksp = "2.1.20-1.0.32"
+agp = "9.3.2"
+kotlin = "2.2.10"
+ksp = "2.3.6"
 
 coreKtx = "1.15.0"
 appcompat = "1.7.0"
@@ -17,6 +17,10 @@ webkit = "1.12.1"
 
 media3 = "1.5.1"
 coil = "3.0.4"
+
+mediarouter = "1.7.0"
+castFramework = "21.5.0"
+nanohttpd = "2.3.1"
 
 junit = "4.13.2"
 junitVersion = "1.2.1"
@@ -53,6 +57,10 @@ androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplaye
 androidx-media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }
 androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
 androidx-media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3" }
+androidx-media3-cast = { group = "androidx.media3", name = "media3-cast", version.ref = "media3" }
+androidx-mediarouter = { group = "androidx.mediarouter", name = "mediarouter", version.ref = "mediarouter" }
+play-services-cast-framework = { group = "com.google.android.gms", name = "play-services-cast-framework", version.ref = "castFramework" }
+nanohttpd = { group = "org.nanohttpd", name = "nanohttpd", version.ref = "nanohttpd" }
 
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
 

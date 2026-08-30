@@ -1,5 +1,66 @@
 # Changelog
 
+## v1.5 — 2026-08-30
+
+Chromecast support, whole-book text search in the EPUB reader, an in-app
+dialog when the sleep timer ends, a tidier player top bar, and a portrait-only
+lock.
+
+### Play Store release notes (≤ 500 chars)
+
+```
+• Chromecast: cast your audiobook to the TV from the player. The phone streams it over your Wi-Fi; sleep timer, reader sync and progress all keep working.
+• EPUB reader: search the whole book — results by page, matches highlighted in place, next/previous stepping.
+• Sleep timer done? If the app is open you now get a Postpone/Dismiss dialog, not just a notification.
+• Cleaner player top bar with an overflow menu.
+• The app is now portrait-only.
+```
+
+### Casting
+- **Chromecast support** — a Cast button in the player top bar streams the
+  current book to any Google Cast device (Google's default receiver: cover,
+  title and transport on the TV). The phone serves the audio to the receiver
+  over the local network, so both devices must be on the same Wi-Fi. Everything
+  driven through the media session — mini-player, sleep timer (chapter mode
+  included), reader auto-follow, position saving — keeps working while casting.
+  Disconnecting hands playback back to the phone at the same position,
+  **paused**, so the phone doesn't start talking on its own. On devices without
+  Google Play services the button (and the whole feature) simply doesn't appear.
+
+### Reader
+- **Whole-book text search** — a search icon in the reader top bar opens a
+  search field. Matching is case-insensitive and whitespace-flexible, spans
+  inline formatting (a word split by `<i>…</i>` still matches), and covers
+  every page of the book. Results list shows the page number and a snippet with
+  the match bolded; tapping one jumps to the page, highlights every occurrence,
+  and scrolls the chosen one to center. Arrows in the search bar step through
+  matches across pages, and the `n/m` counter reopens the list. Back walks out
+  of search step by step.
+
+### Sleep timer
+- **In-app expiry dialog** — when the timer fires while the app is open, a
+  Postpone / Dismiss dialog now appears over whatever screen is showing, instead
+  of relying only on the (silent) notification. The dialog, the notification
+  actions, and shake-to-postpone all drive the same state — acting on any one
+  of them clears the others.
+
+### Player
+- **Tidier top bar** — playback speed, chapters and images moved into an
+  overflow (⋮) menu. Cast, Read and the sleep timer stay as icons: the first
+  two have no other home, and the timer's tint shows at a glance that it's
+  armed.
+
+### Polish
+- The whole-book time-left label in the player is now left-aligned, next to its
+  progress bar instead of hugging the screen edge.
+- Progress bars (player, mini-player, library) no longer draw Material's stop
+  dot at the end of the track.
+- **Portrait-only** — the app no longer rotates into landscape, which it was
+  never designed for.
+
+### Under the hood
+- Build stack bumped: AGP 9.3.2, Gradle 9.5, Kotlin 2.2.10.
+
 ## v1.4 — 2026-07-31
 
 Whole-book progress in the player, a chapter bar on the mini-player, manual

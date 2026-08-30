@@ -3,6 +3,7 @@ package com.vibetuned.ln_reader.ui.reader
 import android.webkit.WebView
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.NavigateNext
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.TextDecrease
 import androidx.compose.material.icons.outlined.TextIncrease
 import androidx.compose.material3.CircularProgressIndicator
@@ -85,50 +87,28 @@ fun ReaderScreen(
         onDispose { view.keepScreenOn = false }
     }
 
+    // Back steps out of search progressively: first the results list, then search mode itself.
+    BackHandler(enabled = state.searchActive) {
+        if (state.showSearchResults && state.searchResults != null) viewModel.hideSearchResults()
+        else viewModel.closeSearch()
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        state.bookTitle.ifEmpty { "Reader" },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = viewModel::zoomOut) {
-                        Icon(Icons.Outlined.TextDecrease, contentDescription = "Smaller text")
-                    }
-                    IconButton(onClick = viewModel::zoomIn) {
-                        Icon(Icons.Outlined.TextIncrease, contentDescription = "Larger text")
-                    }
-                    IconButton(onClick = viewModel::toggleDarkMode) {
-                        Icon(
-                            imageVector = if (state.isDark) Icons.Outlined.LightMode
-                            else Icons.Outlined.DarkMode,
-                            contentDescription = if (state.isDark) "Light mode" else "Dark mode"
-                        )
-                    }
-                    // Only meaningful when sync is attached and the user has paged away from the
-                    // audio. Tapping re-engages auto-follow and jumps to the current beat.
-                    if (state.hasSync && !state.autoFollow) {
-                        TextButton(onClick = { viewModel.setAutoFollow(true) }) {
-                            Icon(
-                                Icons.Filled.MyLocation,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text("Resume")
-                        }
-                    }
-                }
-            )
+            if (state.searchActive) {
+                ReaderSearchBar(
+                    query = state.searchQuery,
+                    resultCount = state.searchResults?.size,
+                    selection = state.searchSelection,
+                    onQueryChange = viewModel::setSearchQuery,
+                    onSubmit = viewModel::submitSearch,
+                    onClose = viewModel::closeSearch,
+                    onShowResults = viewModel::showSearchResults,
+                    onStep = viewModel::stepSearchResult
+                )
+            } else {
+                ReaderTopBar(state = state, viewModel = viewModel, onBack = onBack)
+            }
         },
         bottomBar = {
             if (state.spine.isNotEmpty()) {
@@ -154,10 +134,75 @@ fun ReaderScreen(
                     )
                 }
                 state.spine.isEmpty() -> Centered { Text("This EPUB has no readable pages.") }
-                else -> EpubWebView(state = state, bookId = bookId)
+                else -> {
+                    EpubWebView(state = state, bookId = bookId)
+                    if (state.searchActive && state.showSearchResults) {
+                        SearchResultsList(
+                            results = state.searchResults,
+                            isSearching = state.isSearching,
+                            onResultClick = viewModel::openSearchResult
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReaderTopBar(
+    state: ReaderUiState,
+    viewModel: ReaderViewModel,
+    onBack: () -> Unit
+) {
+    TopAppBar(
+        title = {
+            Text(
+                state.bookTitle.ifEmpty { "Reader" },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+            }
+        },
+        actions = {
+            if (state.spine.isNotEmpty()) {
+                IconButton(onClick = viewModel::openSearch) {
+                    Icon(Icons.Outlined.Search, contentDescription = "Search in book")
+                }
+            }
+            IconButton(onClick = viewModel::zoomOut) {
+                Icon(Icons.Outlined.TextDecrease, contentDescription = "Smaller text")
+            }
+            IconButton(onClick = viewModel::zoomIn) {
+                Icon(Icons.Outlined.TextIncrease, contentDescription = "Larger text")
+            }
+            IconButton(onClick = viewModel::toggleDarkMode) {
+                Icon(
+                    imageVector = if (state.isDark) Icons.Outlined.LightMode
+                    else Icons.Outlined.DarkMode,
+                    contentDescription = if (state.isDark) "Light mode" else "Dark mode"
+                )
+            }
+            // Only meaningful when sync is attached and the user has paged away from the
+            // audio. Tapping re-engages auto-follow and jumps to the current beat.
+            if (state.hasSync && !state.autoFollow) {
+                TextButton(onClick = { viewModel.setAutoFollow(true) }) {
+                    Icon(
+                        Icons.Filled.MyLocation,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("Resume")
+                }
+            }
+        }
+    )
 }
 
 @Composable
@@ -221,6 +266,20 @@ private fun EpubWebView(state: ReaderUiState, bookId: String?) {
         wv.evaluateJavascript(INJECT_STYLE_JS, null)
         state.activeBeatId?.let { beatId ->
             wv.evaluateJavascript(highlightJs(state.dataAttr, beatId), null)
+        }
+    }
+
+    // Search: once the target page is loaded, highlight every match and scroll to the selected
+    // occurrence. Clearing the target (new search, search closed) strips the highlight spans. A
+    // page that isn't the target needs no cleanup — navigating gave it a fresh document.
+    LaunchedEffect(state.searchTarget, pageLoaded) {
+        val wv = webView ?: return@LaunchedEffect
+        if (!pageLoaded) return@LaunchedEffect
+        val target = state.searchTarget
+        when {
+            target == null -> wv.evaluateJavascript(CLEAR_SEARCH_JS, null)
+            target.spineIndex == state.currentIndex ->
+                wv.evaluateJavascript(searchHighlightJs(target.jsPattern, target.occurrence), null)
         }
     }
 

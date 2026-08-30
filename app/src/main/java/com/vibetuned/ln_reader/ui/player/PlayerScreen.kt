@@ -27,10 +27,13 @@ import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
@@ -55,9 +58,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.mediarouter.app.MediaRouteButton
+import com.google.android.gms.cast.framework.CastButtonFactory
+import com.vibetuned.ln_reader.player.CastSupport
 import coil3.compose.AsyncImage
 import com.vibetuned.ln_reader.ui.common.appContainer
 import com.vibetuned.ln_reader.ui.viewer.FullScreenImageViewer
@@ -103,19 +111,11 @@ fun PlayerScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showSpeed = true }) {
-                        Icon(Icons.Outlined.Speed, contentDescription = "Playback speed")
-                    }
-                    IconButton(onClick = { showChapters = true }) {
-                        Icon(Icons.AutoMirrored.Outlined.List, contentDescription = "Chapters")
-                    }
+                    // Visible icons: the stateful ones — Cast (connection state) and the sleep
+                    // timer (tinted while armed) — plus Read, which has no other entry point on
+                    // this screen. Everything else lives in the overflow menu.
+                    CastButton()
                     val currentBookId = state.book?.id
-                    IconButton(
-                        onClick = { currentBookId?.let(onViewImages) },
-                        enabled = currentBookId != null
-                    ) {
-                        Icon(Icons.Outlined.Image, contentDescription = "Images")
-                    }
                     IconButton(
                         onClick = { currentBookId?.let(onOpenReader) },
                         enabled = currentBookId != null && state.book?.hasEpub == true
@@ -134,6 +134,51 @@ fun PlayerScreen(
                             tint = if (timerActive) MaterialTheme.colorScheme.primary
                             else LocalContentColor.current
                         )
+                    }
+                    var showMenu by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "More options")
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Playback speed") },
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.Speed, contentDescription = null)
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    showSpeed = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Chapters") },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.AutoMirrored.Outlined.List,
+                                        contentDescription = null
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    showChapters = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Images") },
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.Image, contentDescription = null)
+                                },
+                                enabled = currentBookId != null,
+                                onClick = {
+                                    showMenu = false
+                                    currentBookId?.let(onViewImages)
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -417,13 +462,14 @@ private fun Scrubber(
         ) {
             LinearProgressIndicator(
                 progress = { bookProgress },
+                drawStopIndicator = {},
                 modifier = Modifier.weight(3f).height(4.dp)
             )
             Text(
                 formatHoursMinutes(bookRemainingMs),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.End,
+                textAlign = TextAlign.Start,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -499,4 +545,25 @@ internal fun formatTime(ms: Long): String {
     val seconds = TimeUnit.MILLISECONDS.toSeconds(clamped) % 60
     return if (hours > 0) "%d:%02d:%02d".format(hours, minutes, seconds)
     else "%d:%02d".format(minutes, seconds)
+}
+
+/**
+ * Google Cast button (device picker + connection state). Renders nothing on devices without Play
+ * Services. A classic View wrapped for Compose. Both the button and the device-chooser dialog it
+ * opens resolve AppCompat theme attributes from the *activity* — which is why Theme.Lnreader has
+ * an AppCompat parent and MainActivity is a FragmentActivity (the chooser is a DialogFragment).
+ */
+@Composable
+private fun CastButton() {
+    val context = LocalContext.current
+    val castAvailable = remember { CastSupport.castContextOrNull(context) != null }
+    if (!castAvailable) return
+    AndroidView(
+        factory = { ctx ->
+            MediaRouteButton(ctx).also { button ->
+                CastButtonFactory.setUpMediaRouteButton(ctx.applicationContext, button)
+            }
+        },
+        modifier = Modifier.size(48.dp)
+    )
 }
