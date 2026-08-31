@@ -25,6 +25,7 @@
         <a href="#sync" class="hide-sm">EPUB&nbsp;sync</a>
         <a href="privacy.html">Privacy</a>
         <a href="https://play.google.com/store/apps/details?id=com.vibetuned.ln_reader">Google&nbsp;Play</a>
+        <a href="https://apps.apple.com/app/id6807116233">App&nbsp;Store</a>
       </div>
     </div>
   </nav>
@@ -53,12 +54,17 @@
           <svg viewBox="0 0 512 512" aria-hidden="true"><path d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1zM47 0C34 6.8 25.3 19.2 25.3 35.3v441.3c0 16.1 8.7 28.5 21.7 35.3l256.6-256L47 0zm425.2 225.6l-58.9-34.1-65.7 64.5 65.7 64.5 60.1-34.1c18-14.3 18-46.5-1.2-60.8zM104.6 499l280.8-161.2-60.1-60.1L104.6 499z"/></svg>
           Get it on Google Play
         </a>
+        <a class="btn btn-primary" href="https://apps.apple.com/app/id6807116233">
+          <svg viewBox="0 0 384 512" aria-hidden="true"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+          Download on the App Store
+        </a>
         <a class="btn btn-ghost" href="https://github.com/vibetuned/ln-reader">View on GitHub</a>
       </div>
       <div class="badge-row">
-        <span class="badge">★ Now on Google Play · v1.4</span>
+        <span class="badge">★ Google Play · v1.5</span>
+        <span class="badge">★ App Store · v1.0</span>
         <span class="badge badge-android">Native Android · Kotlin + Jetpack Compose · 13+</span>
-        <span class="badge badge-ios">Native iOS · Swift + SwiftUI · 17+ — App&nbsp;Store soon</span>
+        <span class="badge badge-ios">Native iOS · Swift + SwiftUI · 17+</span>
         <span class="badge">100% on-device</span>
       </div>
     </div>
@@ -109,39 +115,45 @@
   <section id="whatsnew" class="alt">
     <div class="wrap">
       <div class="section-head">
-        <span class="ver-pill">v1.4 · 31 Jul 2026</span>
+        <span class="ver-pill">Android v1.5 · 30 Aug 2026</span>
+        <span class="ver-pill">iOS v1.0 · New</span>
         <h2>What's new</h2>
-        <p>Whole-book progress in Now Playing, a chapter bar on the mini-player, hand-arranged collections, and a prompt to continue to the next book when one finishes.</p>
+        <p>ln-reader lands on the App Store — and v1.5 brings Chromecast, whole-book reader search, an in-app sleep-timer dialog, and a tidier player top bar.</p>
       </div>
       <div class="grid">
         <div class="card">
-          <span class="ico">📊</span>
-          <h3>Whole-book progress</h3>
-          <p>The Now Playing scrubber gains a slim bar for how far through the <strong>whole book</strong> you are, plus the time remaining (<code>2h 15m</code>) beside it — alongside the existing chapter-relative scrubber.</p>
+          <span class="ico"></span>
+          <h3>ln-reader for iPhone &amp; iPad</h3>
+          <p>The full app, rebuilt natively in <span class="plat ios">Swift + SwiftUI</span> — everything the Android version does, plus <strong>AirPlay next to Google Cast</strong> and books that <strong>import themselves straight from AirDrop</strong>.</p>
         </div>
         <div class="card">
-          <span class="ico">⏭️</span>
-          <h3>Continue the collection</h3>
-          <p>Finish a book that's in a collection and a sheet slides up offering the <strong>next</strong> (or previous) book by its cover — tap to keep listening. It appears over any screen, even while listening from the mini-player.</p>
+          <span class="ico">📺</span>
+          <h3>Cast to the TV</h3>
+          <p><strong>Google Cast</strong> from the player on both platforms (plus AirPlay on iOS). Your device streams the book over Wi-Fi while the sleep timer, reader sync, and progress saving keep working; disconnecting hands playback back paused at the same spot.</p>
         </div>
         <div class="card">
-          <span class="ico">✋</span>
-          <h3>Arrange a collection by hand</h3>
-          <p>A collection's sort menu gains <strong>Manual</strong>, opening a reorder screen — long-press a book and drag it into any order you like. The arrangement is remembered per collection.</p>
+          <span class="ico">🔎</span>
+          <h3>Whole-book reader search</h3>
+          <p>Search every page of the EPUB from the reader — case-insensitive, matching across inline formatting. Results by page with the match bolded; tap to jump, highlight in place, and step through matches with next/previous.</p>
         </div>
         <div class="card">
-          <span class="ico">📻</span>
-          <h3>Mini-player chapter bar</h3>
-          <p>The mini-player now shows a second, thinner <strong>chapter-progress</strong> bar above the book-progress bar, so you can see how far through the chapter you are at a glance.</p>
+          <span class="ico">😴</span>
+          <h3>Sleep timer, in your face</h3>
+          <p>When the timer fires while the app is open, a <strong>Postpone / Dismiss</strong> dialog appears over whatever screen you're on — no more silent notification. The dialog, the notification, and shake-to-postpone all drive the same state.</p>
+        </div>
+        <div class="card">
+          <span class="ico">🎛️</span>
+          <h3>Tidier player top bar</h3>
+          <p>Speed, chapters, and images move into an overflow menu; Cast, Read, and the sleep timer stay as icons — the timer tints while armed so you can see it at a glance.</p>
         </div>
         <div class="card">
           <span class="ico">🛠️</span>
-          <h3>Polish &amp; fixes</h3>
-          <p>Reopening a finished book restarts it from the beginning, and switching books mid-listen no longer briefly strands the previous book's cover, chapters, or images.</p>
+          <h3>Polish</h3>
+          <p>The app is now <strong>portrait-only</strong> on phones, the whole-book time-left label sits next to its bar, and progress bars lose Material's stray stop dot.</p>
         </div>
       </div>
       <p class="changelog-foot">
-        See the <a href="https://github.com/vibetuned/ln-reader/blob/main/CHANGELOG.md">full changelog</a> for every change, including the v1.3 and earlier release notes.
+        See the <a href="https://github.com/vibetuned/ln-reader/blob/main/CHANGELOG.md">Android changelog</a> and the <a href="https://github.com/vibetuned/ln-reader-ios/blob/main/CHANGELOG.md">iOS changelog</a> for every change, including earlier release notes.
       </p>
     </div>
   </section>
@@ -178,7 +190,7 @@
             timers, and the EPUB reader that highlights the text in sync with the audio.
           </p>
           <a class="card-link" href="https://play.google.com/store/apps/details?id=com.vibetuned.ln_reader">Get it on Google Play →</a><br />
-          <a class="card-link" href="https://github.com/vibetuned/ln-reader-ios">The iOS app on GitHub — App&nbsp;Store release coming soon →</a>
+          <a class="card-link" href="https://apps.apple.com/app/id6807116233">Download on the App Store →</a>
         </div>
       </div>
     </div>
