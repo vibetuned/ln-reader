@@ -1,11 +1,16 @@
-# Play Store screenshots
+# Store screenshots
 
-Regenerated per release. `phone/` is 1080x1920 (9:16), `tablet10/` is 1600x2560 (1:1.6);
+Regenerated per release. Six screens per set, in listing order: library, player, images,
+timer, EPUB reader, EPUB search.
+
+Play Store sets: `phone/` is 1080x1920 (9:16), `tablet10/` is 1600x2560 (1:1.6);
 both are 24-bit PNG with no alpha, which is what Play accepts. Play's hard rule is that the
 longer side may not exceed twice the shorter one — that is why the phone set is 1080x1920 and
 not a modern 20:9 shape, which would be rejected at 2.22:1.
 
-Six screens, in listing order: library, player, images, timer, EPUB reader, EPUB search.
+App Store sets (same six scenes, from the iOS port): `iphone/` is 1320x2868 — the required
+6.9" size, captured on the iPhone 17 Pro Max simulator — and `ipad13/` is 2048x2732, the 13"
+iPad size, from the iPad Air 13" (M4) simulator. Reproduction commands are at the bottom.
 
 ## Books used
 
@@ -94,3 +99,45 @@ Undoing it takes more than deleting the key: `settings delete` drops the request
 `com.android.systemui:dynamic` runtime overlay enabled, which leaves a mismatched palette
 (green primary against a maroon track). Restarting SystemUI does not reconcile it either.
 Delete the key **and reboot** — that restored the wallpaper palette pixel-for-pixel here.
+
+## Reproducing — iOS (`iphone/`, `ipad13/`)
+
+Everything is driven by DEBUG-only launch arguments in the ln-reader-ios repo (see
+`LnReaderApp.swift` and `ReaderViewModel.swift`); no test fixture ships in the app. Build
+once, then each scene is a single `simctl launch`.
+
+```sh
+# 0. Simulators: iPhone 17 Pro Max (1320x2868) and iPad Air 13" M4 (2048x2732), English
+#    locale, dark appearance, clean status bar.
+xcodegen generate && xcodebuild -scheme LnReader -configuration Debug \
+  -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd build
+xcrun simctl boot "$UDID"
+xcrun simctl ui "$UDID" appearance dark
+xcrun simctl status_bar "$UDID" override --time "9:41" --wifiBars 3 --cellularBars 4 \
+  --batteryState charged --batteryLevel 100
+xcrun simctl install "$UDID" build/dd/Build/Products/Debug-iphonesimulator/LnReader.app
+
+# 1. Import the four demo books (order matters: date-added sort shows newest first).
+#    -autoImport auto-attaches the sibling .epub and sync_manifest.json.
+xcrun simctl launch "$UDID" com.vibetuned.lnreader \
+  -autoImport "<demo>/fairy-dreams/….m4b" -autoImport "<demo>/flatland/….m4b" \
+  -autoImport "<demo>/oz/….m4b"          -autoImport "<demo>/alice/….m4b"
+
+# 2. Stage positions: Oz gets a visible progress bar; Alice parks on the Cheshire Cat
+#    beat (6266 s — "Therefore I'm mad", beat 09_s5_b0024 in the sync manifest), which is
+#    what the reader highlights in scene 5. Let each run ~10 s so the 5 s auto-save fires.
+xcrun simctl launch "$UDID" com.vibetuned.lnreader -openTitle "the wonderful" -seekTo 3600 -play
+xcrun simctl launch "$UDID" com.vibetuned.lnreader -openTitle alice -seekTo 6266 -play
+
+# 3. One launch + `simctl io screenshot` per scene:
+#    01  -openTitle alice -seekTo 6266 -play -tab library
+#    02  -openTitle alice -seekTo 6266 -play
+#    03  -openTitle "the wonderful" -play -tab images        (Oz's plates read best)
+#    04  -openTitle alice -seekTo 6266 -play -armTimer 30 -tab timer
+#    05  -openTitle alice -seekTo 6266 -play -readerDark -showReader
+#    06  -openTitle alice -seekTo 6266 -play -readerDark -showReader -readerSearch Cheshire
+```
+
+Arming the timer asks for notification permission once per simulator; run the
+`NotificationPermissionUITests` UI test first to answer the dialog (or pass
+`-skipNotifAuth`, which suppresses the request entirely).

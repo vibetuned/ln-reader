@@ -231,6 +231,35 @@ section { padding: 64px 0; }
 
 .alt { background: var(--bg-soft); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 
+/* Screenshot strips */
+.shots-group { margin-bottom: 36px; }
+.shots-group:last-of-type { margin-bottom: 0; }
+.shots-label { text-align: center; margin-bottom: 16px; }
+.shots-row {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 4px 2px 14px;
+  scroll-snap-type: x proximity;
+  justify-content: safe center;
+}
+.shot { flex: 0 0 auto; margin: 0; scroll-snap-align: start; }
+.shot img {
+  height: 380px;
+  width: auto;
+  display: block;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.shot figcaption {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+  margin-top: 8px;
+}
+.shots-foot { text-align: center; color: var(--text-faint); font-size: 0.88rem; margin: 26px 0 0; }
+
 /* Ecosystem split */
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
 .split .card h3 { display: flex; align-items: center; gap: 10px; }
