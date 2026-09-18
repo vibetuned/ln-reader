@@ -2,7 +2,9 @@
     <!-- AppCompat parent (not android:Theme.Material): the Cast device-chooser dialog resolves
          AppCompat theme attributes from the activity theme and crashes on a platform theme. -->
     <style name="Theme.Lnreader" parent="Theme.AppCompat.NoActionBar">
-        <item name="android:windowBackground">@android:color/black</item>
+        <!-- Slate rather than black: matches the dark scheme's surface so there is no
+             contrast jolt between the launch window and the first Compose frame. -->
+        <item name="android:windowBackground">@color/brand_slate_base</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>

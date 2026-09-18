@@ -2,9 +2,11 @@
     <!-- AppCompat parent (not android:Theme.Material): the Cast device-chooser dialog resolves
          AppCompat theme attributes from the activity theme and crashes on a platform theme. -->
     <style name="Theme.Lnreader" parent="Theme.AppCompat.NoActionBar">
-        <item name="android:windowBackground">@android:color/black</item>
+        <!-- Brand paper rather than black: this is what shows for the frame or two before
+             Compose draws, so it has to match the light scheme's surface. -->
+        <item name="android:windowBackground">@color/brand_paper</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>

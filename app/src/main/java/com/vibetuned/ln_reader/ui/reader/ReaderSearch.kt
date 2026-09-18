@@ -218,9 +218,9 @@ fun searchHighlightJs(jsPattern: String, occurrence: Int): String {
     var st = document.createElement('style');
     st.id = STYLE_ID;
     st.textContent =
-      '.lnvox-search{background:rgba(255,213,79,0.45) !important;border-radius:2px;}' +
-      '.lnvox-search-current{background:rgba(255,152,0,0.95) !important;border-radius:2px;}' +
-      '.lnvox-search-current{color:#1a1a1a !important;}';
+      '.lnvox-search{background:rgba(198,146,52,0.38) !important;border-radius:2px;}' +
+      '.lnvox-search-current{background:rgba(233,195,73,0.95) !important;border-radius:2px;}' +
+      '.lnvox-search-current{color:#3c2f00 !important;}';
     (document.head || document.documentElement).appendChild(st);
   }
   $CLEAR_SEARCH_JS

@@ -329,8 +329,9 @@ private fun Centered(content: @Composable () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { content() }
 }
 
-// ARGB for the dark reader background (Material dark surface ~#121212).
-private const val READER_DARK_BG = 0xFF121212.toInt()
+// ARGB for the dark reader background — the brand slate base, matching ui/theme/Color.kt so the
+// page and the surrounding chrome are the same surface.
+private const val READER_DARK_BG = 0xFF121316.toInt()
 
 /**
  * Applies (dark) or clears (light) a reader theme by managing a single injected `<style>` element
@@ -339,19 +340,20 @@ private const val READER_DARK_BG = 0xFF121212.toInt()
  */
 private fun themeJs(dark: Boolean): String {
     val css = if (dark) {
-        "html,body{background:#121212 !important;}" +
-            "body, body *:not(a){color:#e0e0e0 !important;}" +
+        "html,body{background:#121316 !important;}" +
+            "body, body *:not(a){color:#e8ece9 !important;}" +
             "body *{background-color:transparent !important;}" +
-            "a, a *{color:#90caf9 !important;}" +
+            "a, a *{color:#abcfb2 !important;}" +
             // Keep the active-beat highlight visible: the transparent-background rule above uses
             // !important, so the highlight needs its own !important rule (class beats `body *` on
-            // specificity). Brighter amber + dark text so it reads on the dark page.
-            ".lnvox-active{background:rgba(255,213,79,0.85) !important;border-radius:3px !important;}" +
-            ".lnvox-active,.lnvox-active *{color:#121212 !important;}"
+            // specificity). A translucent amber wash carries warm golden type rather than
+            // inverting to dark-on-solid — glare-free at night, and the same treatment as iOS.
+            ".lnvox-active{background:rgba(198,146,52,0.18) !important;border-radius:3px !important;}" +
+            ".lnvox-active,.lnvox-active *{color:#f1c465 !important;}"
     } else {
         ""
     }
-    val bg = if (dark) "#121212" else "#ffffff"
+    val bg = if (dark) "#121316" else "#ffffff"
     return """
 (function(){
   var id='lnvox-theme';
@@ -370,7 +372,7 @@ private const val INJECT_STYLE_JS = """
   if (document.getElementById('lnvox-style')) return;
   var s = document.createElement('style');
   s.id = 'lnvox-style';
-  s.textContent = '.lnvox-active{background:rgba(255,213,79,0.45);border-radius:3px;}';
+  s.textContent = '.lnvox-active{background:rgba(198,146,52,0.40);border-radius:3px;}';
   (document.head || document.documentElement).appendChild(s);
 })();
 """

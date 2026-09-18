@@ -1,5 +1,6 @@
 package com.vibetuned.ln_reader.ui.player
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -8,12 +9,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.List
@@ -55,6 +59,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,6 +73,8 @@ import com.google.android.gms.cast.framework.CastButtonFactory
 import com.vibetuned.ln_reader.player.CastSupport
 import coil3.compose.AsyncImage
 import com.vibetuned.ln_reader.ui.common.appContainer
+import com.vibetuned.ln_reader.ui.theme.DimCaptionColor
+import com.vibetuned.ln_reader.ui.theme.InactiveTrackColor
 import com.vibetuned.ln_reader.ui.viewer.FullScreenImageViewer
 import java.io.File
 import java.util.concurrent.TimeUnit
@@ -288,7 +295,13 @@ private fun PlayerContent(
         modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Equal weights above and below centre the cover/title/chapter block in the space over the
+        // scrubber, rather than pinning it to either end — a tall tablet has ~300dp of slack, and
+        // parking all of it at one edge reads as a hole. The fixed 28dp below is a floor, so the
+        // block keeps its breathing room from the scrubber once the weighted spacers collapse on a
+        // short screen.
         Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.weight(1f))
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.8f)
@@ -321,6 +334,7 @@ private fun PlayerContent(
                 modifier = Modifier.padding(top = 4.dp)
             )
         }
+        Spacer(Modifier.height(28.dp))
         Spacer(Modifier.weight(1f))
         Scrubber(
             positionInChapterMs = state.positionInChapterMs,
@@ -365,10 +379,15 @@ private fun ChapterSelector(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         if (chapterTitle != null) {
+            // Medium weight at full-strength onSurface, matching the iOS selector's
+            // `.subheadline.weight(.medium)` in the primary label colour: the chapter name is the
+            // heading of what you are listening to, so it outranks the "Chapter n of m" caption
+            // under it rather than sharing its muted tone.
             Text(
                 chapterTitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
@@ -390,6 +409,7 @@ private fun ChapterSelector(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Scrubber(
     positionInChapterMs: Long,
@@ -435,6 +455,10 @@ private fun Scrubber(
             }
         }
     }
+    // Material 3's expressive Slider draws a thick, gapped track with a pill thumb. The scrubber
+    // reads better — and matches the iOS player — as a slim capsule with a round knob, so the
+    // visuals come from the thumb/track slots while the Slider itself keeps Android's gesture
+    // handling, keyboard stepping and accessibility semantics.
     Slider(
         value = sliderValue,
         valueRange = 0f..maxValue,
@@ -442,45 +466,89 @@ private fun Scrubber(
         onValueChangeFinished = {
             draggingValue?.let { onSeek(chapterStartMs + it.toLong()) }
             draggingValue = null
+        },
+        thumb = {
+            Spacer(
+                modifier = Modifier
+                    .size(THUMB_RADIUS * 2)
+                    .shadow(2.dp, CircleShape)
+                    .background(MaterialTheme.colorScheme.primary, CircleShape)
+            )
+        },
+        track = {
+            // The track slot is laid out at (slider width - thumb width) and offset by half a
+            // thumb, so the thumb centre sits exactly at `fraction` along it — filling the active
+            // portion by the same fraction lines the two up without any manual inset.
+            val fraction = (sliderValue / maxValue).coerceIn(0f, 1f)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(SCRUBBER_TRACK_HEIGHT)
+                    .clip(CircleShape)
+                    .background(InactiveTrackColor)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(fraction)
+                        .fillMaxHeight()
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+            }
         }
     )
     // Book-absolute position follows the drag (chapter start + chapter-local slider value).
     val bookPositionMs = (chapterStartMs + sliderValue.toLong()).coerceIn(0L, bookDurationMs.coerceAtLeast(0L))
     val bookProgress = if (bookDurationMs > 0L) (bookPositionMs.toFloat() / bookDurationMs).coerceIn(0f, 1f) else 0f
     val bookRemainingMs = (bookDurationMs - bookPositionMs).coerceAtLeast(0L)
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(formatTime(sliderValue.toLong()), style = MaterialTheme.typography.labelMedium)
-        // Whole-book context between the chapter times: a progress bar for how far through the book
-        // we are (left) and the time left in the book (right), splitting the middle space in two.
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+        // The bar is sized off the row so a tablet gets a generous strip while a phone — where the
+        // two chapter times and the longer "left" label already eat the width — keeps a strip that
+        // still fits between them.
+        val stripWidth = (maxWidth * BOOK_STRIP_WIDTH_FRACTION)
+            .coerceIn(BOOK_STRIP_MIN_WIDTH, BOOK_STRIP_MAX_WIDTH)
         Row(
-            modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            LinearProgressIndicator(
-                progress = { bookProgress },
-                drawStopIndicator = {},
-                modifier = Modifier.weight(3f).height(4.dp)
-            )
+            Text(formatTime(sliderValue.toLong()), style = MaterialTheme.typography.labelMedium)
+            // Whole-book context — how far through the book we are, and the time left in it. Sized to
+            // its content and floated between equal spacers so it sits centred between the chapter
+            // times rather than stretching to fill, matching the iOS player.
+            Spacer(modifier = Modifier.weight(1f))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                LinearProgressIndicator(
+                    progress = { bookProgress },
+                    // Plain capsule, same track as the scrubber above it: no stop dot and no
+                    // expressive gap, which would otherwise read as a third, unrelated element.
+                    drawStopIndicator = {},
+                    gapSize = 0.dp,
+                    trackColor = InactiveTrackColor,
+                    modifier = Modifier.width(stripWidth).height(SCRUBBER_TRACK_HEIGHT)
+                )
+                Text(
+                    "${formatHoursMinutes(bookRemainingMs)} left",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = DimCaptionColor,
+                    maxLines = 1
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
             Text(
-                formatHoursMinutes(bookRemainingMs),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Start,
-                modifier = Modifier.weight(1f)
+                "-${formatTime((chapterDurationMs - sliderValue.toLong()).coerceAtLeast(0L))}",
+                style = MaterialTheme.typography.labelMedium
             )
         }
-        Text(
-            "-${formatTime((chapterDurationMs - sliderValue.toLong()).coerceAtLeast(0L))}",
-            style = MaterialTheme.typography.labelMedium
-        )
     }
 }
 
 private val THUMB_RADIUS = 10.dp
+private val SCRUBBER_TRACK_HEIGHT = 4.dp
+private const val BOOK_STRIP_WIDTH_FRACTION = 0.32f
+private val BOOK_STRIP_MIN_WIDTH = 110.dp
+private val BOOK_STRIP_MAX_WIDTH = 240.dp
 
 @Composable
 private fun TransportRow(
@@ -535,7 +603,9 @@ private fun TransportRow(
 /** Whole-book remaining time as "Xh Ym" — minutes rounded up so it only reads 0h 0m at the end. */
 private fun formatHoursMinutes(ms: Long): String {
     val totalMinutes = (ms.coerceAtLeast(0L) + 59_999L) / 60_000L
-    return "${totalMinutes / 60}h ${totalMinutes % 60}m"
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return if (hours > 0) "$hours h $minutes min" else "$minutes min"
 }
 
 internal fun formatTime(ms: Long): String {

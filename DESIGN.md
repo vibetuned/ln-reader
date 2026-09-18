@@ -48,7 +48,7 @@ com.vibetuned.ln_reader
     ├── reader/                    ReaderScreen + ReaderViewModel (EPUB WebView + beat sync, light/dark + text zoom)
     │                              + ReaderSearch (search bar, results list, highlight JS)
     ├── settings/                  SettingsScreen + SettingsViewModel
-    ├── theme/                     Color / Theme / Type (Material 3 dynamic color)
+    ├── theme/                     Color / Theme / Type (Material 3, fixed Athenaeum brand scheme)
     ├── timer/                     TimerScreen + TimerControls + TimerViewModel
     │                              + SleepTimerExpiredDialog (global expiry prompt)
     └── viewer/                    ViewerScreen + FullScreenImageViewer + ViewerViewModel

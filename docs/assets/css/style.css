@@ -1,25 +1,45 @@
 /* Lectures and Narrations — ln-reader site
-   Palette pulled from the app theme: purple_500 #6200EE, purple_700 #3700B3,
-   teal_200 #03DAC5, near-black window background. */
+   Athenaeum Reading Sanctuary: the shared palette from visual-design.md, kept in
+   step with ui/theme/Color.kt on Android and AccentColor.colorset on iOS. Deep
+   slate bases and soft parchment type instead of pitch black and pure white;
+   heritage forest green anchors, burnished amber accents sparingly. */
 
 :root {
-  --bg: #0c0a12;
-  --bg-soft: #15121d;
-  --surface: #1b1726;
-  --surface-2: #221d30;
-  --border: #2e2740;
-  --text: #ece9f4;
-  --text-dim: #a9a2bd;
-  --text-faint: #786f93;
-  --purple: #8c5cff;
-  --purple-deep: #6200ee;
-  --teal: #03dac5;
+  /* Slate — the velvety charcoal foundation, tonally layered for depth. */
+  --bg: #121316;
+  --bg-soft: #1a1c20;
+  --surface: #1f1f23;
+  --surface-2: #23262c;
+  --border: #363b36;
+
+  /* Parchment type rather than piercing white. */
+  --text: #e8ece9;
+  --text-dim: #c2c8c0;
+  --text-faint: #8e959e;
+
+  /* Heritage forest green, desaturated sage, burnished ochre. */
+  --forest: #abcfb2;
+  --forest-deep: #4a6b53;
+  --amber: #e9c349;
+
   --radius: 16px;
   --maxw: 1040px;
   --shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+
+  --font-ui: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-editorial: Newsreader, Georgia, "Times New Roman", serif;
 }
 
 * { box-sizing: border-box; }
+
+/* The design system's split: an editorial serif for anything that reads like a
+   book, a modern utilitarian sans for chrome, labels and controls. */
+h1, h2, h3, .hero h1, .doc h1, .doc h2, .card h3 {
+  font-family: var(--font-editorial);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
 
 html { scroll-behavior: smooth; }
 
@@ -27,13 +47,12 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-    Arial, sans-serif;
+  font-family: var(--font-ui);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
-a { color: var(--teal); text-decoration: none; }
+a { color: var(--forest); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
@@ -44,7 +63,7 @@ a:hover { text-decoration: underline; }
   top: 0;
   z-index: 20;
   backdrop-filter: blur(12px);
-  background: rgba(12, 10, 18, 0.72);
+  background: rgba(18, 19, 22, 0.72);
   border-bottom: 1px solid var(--border);
 }
 .nav .wrap {
@@ -72,8 +91,8 @@ a:hover { text-decoration: underline; }
   padding: 84px 0 72px;
   text-align: center;
   background:
-    radial-gradient(900px 420px at 50% -120px, rgba(140, 92, 255, 0.30), transparent 70%),
-    radial-gradient(700px 360px at 85% 0, rgba(3, 218, 197, 0.14), transparent 65%);
+    radial-gradient(900px 420px at 50% -120px, rgba(74, 107, 83, 0.42), transparent 70%),
+    radial-gradient(700px 360px at 85% 0, rgba(198, 146, 52, 0.12), transparent 65%);
 }
 .hero-icon {
   width: 104px;
@@ -136,7 +155,7 @@ a:hover { text-decoration: underline; }
   line-height: 1.08;
   margin: 0 0 8px;
   letter-spacing: -0.02em;
-  background: linear-gradient(95deg, #fff 20%, var(--purple) 70%, var(--teal));
+  background: linear-gradient(95deg, #fff 18%, var(--forest) 62%, var(--amber));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -146,7 +165,7 @@ a:hover { text-decoration: underline; }
   letter-spacing: 0.18em;
   font-size: 0.78rem;
   font-weight: 700;
-  color: var(--teal);
+  color: var(--amber);
   margin: 0 0 14px;
 }
 .hero .tagline {
@@ -169,9 +188,9 @@ a:hover { text-decoration: underline; }
 }
 .btn:hover { text-decoration: none; transform: translateY(-1px); }
 .btn-primary {
-  color: #120b22;
-  background: linear-gradient(95deg, var(--purple), var(--teal));
-  box-shadow: 0 8px 26px rgba(140, 92, 255, 0.35);
+  color: #12240f;
+  background: linear-gradient(95deg, var(--forest), var(--amber));
+  box-shadow: 0 8px 26px rgba(74, 107, 83, 0.45);
 }
 .btn-ghost { color: var(--text); border-color: var(--border); background: var(--surface); }
 .btn-ghost:hover { background: var(--surface-2); }
@@ -195,8 +214,8 @@ a:hover { text-decoration: underline; }
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #120b22;
-  background: linear-gradient(95deg, var(--purple), var(--teal));
+  color: #12240f;
+  background: linear-gradient(95deg, var(--forest), var(--amber));
   padding: 4px 12px;
   border-radius: 999px;
   margin-bottom: 14px;
@@ -271,8 +290,8 @@ section { padding: 64px 0; }
   padding: 3px 9px;
   border-radius: 7px;
 }
-.tag.create { background: rgba(140, 92, 255, 0.18); color: var(--purple); }
-.tag.consume { background: rgba(3, 218, 197, 0.16); color: var(--teal); }
+.tag.create { background: rgba(171, 207, 178, 0.16); color: var(--forest); }
+.tag.consume { background: rgba(233, 195, 73, 0.16); color: var(--amber); }
 
 /* Feature grid */
 .grid {
@@ -286,19 +305,19 @@ section { padding: 64px 0; }
   border-radius: var(--radius);
   padding: 26px;
 }
-.card:hover { border-color: #3c3357; }
+.card:hover { border-color: var(--forest-deep); }
 .card .ico { font-size: 1.6rem; line-height: 1; margin-bottom: 14px; display: block; }
 .card h3 { margin: 0 0 8px; font-size: 1.18rem; }
 .card p { margin: 0 0 12px; color: var(--text-dim); font-size: 0.95rem; }
 .card ul { margin: 0; padding-left: 18px; color: var(--text-dim); font-size: 0.92rem; }
 .card ul li { margin-bottom: 6px; }
-.card ul li::marker { color: var(--purple); }
+.card ul li::marker { color: var(--forest); }
 
 /* Sync table */
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
 th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
-thead th { color: var(--teal); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
+thead th { color: var(--forest); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
 tbody tr:hover { background: var(--surface); }
 td:first-child, td:nth-child(2) { text-align: center; font-weight: 700; width: 70px; }
 
@@ -309,13 +328,13 @@ td:first-child, td:nth-child(2) { text-align: center; font-weight: 700; width: 7
 
 /* Build / code */
 .code {
-  background: #0a0810;
+  background: #0d0e11;
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 18px 20px;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 0.9rem;
-  color: #c6e9e4;
+  color: #cfe3d3;
   overflow-x: auto;
 }
 .build-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
@@ -341,11 +360,11 @@ footer a { color: var(--text-dim); }
 .doc strong { color: var(--text); }
 .doc ul { padding-left: 20px; }
 .doc li { margin-bottom: 8px; }
-.doc li::marker { color: var(--purple); }
+.doc li::marker { color: var(--forest); }
 .callout {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-left: 3px solid var(--teal);
+  border-left: 3px solid var(--forest);
   border-radius: 10px;
   padding: 16px 20px;
   margin: 22px 0;

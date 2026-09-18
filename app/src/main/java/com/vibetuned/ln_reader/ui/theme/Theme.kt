@@ -12,42 +12,42 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = BrandPurple,
-    onPrimary = Color(0xFF12082B),
-    primaryContainer = BrandPurpleDeep,
-    onPrimaryContainer = Color(0xFFEADDFF),
-    inversePrimary = Color(0xFF6844C9),
+    primary = ForestLight,
+    onPrimary = ForestDark,
+    primaryContainer = ForestDeep,
+    onPrimaryContainer = ForestPale,
+    inversePrimary = ForestMid,
 
-    secondary = BrandTeal,
-    onSecondary = Color(0xFF00201C),
-    secondaryContainer = Color(0xFF372C5E),
-    onSecondaryContainer = Color(0xFFE6DCFF),
+    secondary = SageLight,
+    onSecondary = SageDark,
+    secondaryContainer = SageContainer,
+    onSecondaryContainer = SageOnContainer,
 
-    tertiary = BrandTeal,
-    onTertiary = Color(0xFF00201C),
-    tertiaryContainer = Color(0xFF00504A),
-    onTertiaryContainer = Color(0xFFB8FFF5),
+    tertiary = AmberLight,
+    onTertiary = AmberDark,
+    tertiaryContainer = AmberContainer,
+    onTertiaryContainer = AmberOnContainer,
 
-    background = BrandBg,
-    onBackground = BrandText,
-    surface = BrandBg,
-    onSurface = BrandText,
-    surfaceVariant = BrandSurface2,
-    onSurfaceVariant = BrandTextDim,
+    background = SlateBase,
+    onBackground = ParchmentText,
+    surface = SlateBase,
+    onSurface = ParchmentText,
+    surfaceVariant = SlateHighest,
+    onSurfaceVariant = SageText,
 
-    surfaceDim = BrandBg,
-    surfaceBright = Color(0xFF322B42),
-    surfaceContainerLowest = Color(0xFF07050B),
-    surfaceContainerLow = BrandBgSoft,
-    surfaceContainer = BrandSurface,
-    surfaceContainerHigh = BrandSurface2,
-    surfaceContainerHighest = BrandBorder,
+    surfaceDim = SlateBase,
+    surfaceBright = SlateBright,
+    surfaceContainerLowest = SlateLowest,
+    surfaceContainerLow = SlateLow,
+    surfaceContainer = SlateContainer,
+    surfaceContainerHigh = SlateHigh,
+    surfaceContainerHighest = SlateHighest,
 
-    inverseSurface = BrandText,
-    inverseOnSurface = BrandBgSoft,
+    inverseSurface = ParchmentText,
+    inverseOnSurface = Color(0xFF2F3034),
 
-    outline = BrandTextFaint,
-    outlineVariant = BrandBorder,
+    outline = OutlineSage,
+    outlineVariant = OutlineSageDim,
     scrim = Color(0xFF000000),
 
     error = Color(0xFFFFB4AB),
@@ -57,49 +57,77 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF6743C7),
+    primary = ForestOnLight,
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFE9DDFF),
-    onPrimaryContainer = Color(0xFF21005D),
-    inversePrimary = BrandPurple,
+    primaryContainer = ForestContainerLight,
+    onPrimaryContainer = ForestOnContainerLight,
+    inversePrimary = ForestLight,
 
-    secondary = Color(0xFF006A60),
+    secondary = SageOnLight,
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFE7DEF8),
-    onSecondaryContainer = Color(0xFF1F1A2C),
+    secondaryContainer = SageContainerLight,
+    onSecondaryContainer = SageOnContainerLight,
 
-    tertiary = Color(0xFF006A60),
+    tertiary = AmberOnLight,
     onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFF9FF2E6),
-    onTertiaryContainer = Color(0xFF00201C),
+    tertiaryContainer = AmberContainerLight,
+    onTertiaryContainer = AmberOnContainerLight,
 
-    background = Color(0xFFFDFAFF),
-    onBackground = BrandSurface,
-    surface = Color(0xFFFDFAFF),
-    onSurface = BrandSurface,
-    surfaceVariant = Color(0xFFE7E0EB),
-    onSurfaceVariant = Color(0xFF494455),
+    background = PaperBright,
+    onBackground = InkText,
+    surface = PaperBright,
+    onSurface = InkText,
+    surfaceVariant = InkSurfaceVariant,
+    onSurfaceVariant = InkVariant,
 
-    surfaceDim = Color(0xFFDED8E4),
-    surfaceBright = Color(0xFFFDFAFF),
+    surfaceDim = PaperDim,
+    surfaceBright = PaperBright,
     surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFF8F2FC),
-    surfaceContainer = Color(0xFFF2ECF7),
-    surfaceContainerHigh = Color(0xFFECE6F1),
-    surfaceContainerHighest = Color(0xFFE6E0EB),
+    surfaceContainerLow = PaperContainerLow,
+    surfaceContainer = PaperContainer,
+    surfaceContainerHigh = PaperContainerHigh,
+    surfaceContainerHighest = PaperContainerHighest,
 
-    inverseSurface = BrandSurface,
-    inverseOnSurface = Color(0xFFF5EFFA),
+    inverseSurface = Color(0xFF2E312D),
+    inverseOnSurface = Color(0xFFEFF2EC),
 
-    outline = Color(0xFF7A7488),
-    outlineVariant = Color(0xFFCBC4D4),
+    outline = OutlineInk,
+    outlineVariant = OutlineInkDim,
     scrim = Color(0xFF000000)
 )
 
+/**
+ * The unfilled portion of sliders and progress bars.
+ *
+ * Not a Material colour role: visual-design.md calls for a seek-slider track a shade softer than
+ * any of the surface containers, so the sage fill carries the eye rather than the empty track.
+ * Resolved against the active scheme so the light theme gets a light track rather than a dark one.
+ */
+val InactiveTrackColor: Color
+    @Composable
+    get() = if (isSystemInDarkTheme()) SlateOverlay else InkSurfaceVariant
+
+/**
+ * Deliberately recessive caption text, for labels that should sit well below the figures they
+ * annotate — the whole-book "left" label under the scrubber. Roughly 4:1 against the surface in
+ * either theme: a watermark, but still legible at a glance.
+ */
+val DimCaptionColor: Color
+    @Composable
+    get() = if (isSystemInDarkTheme()) CaptionDim else CaptionDimLight
+
+/**
+ * Material 3 with the Athenaeum brand scheme.
+ *
+ * [dynamicColor] defaults to false: the palette is the shared identity across the Android app, the
+ * iOS app, the site and the store listings, and Material You wallpaper extraction would replace it
+ * on Android 12+. Everything else — component shapes, motion, typography scale, edge-to-edge
+ * chrome — stays stock Material 3, so the app still reads as native Android.
+ */
 @Composable
 fun LnReaderTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
