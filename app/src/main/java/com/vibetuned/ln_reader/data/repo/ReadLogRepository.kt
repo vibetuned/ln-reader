@@ -8,6 +8,7 @@ import com.vibetuned.ln_reader.data.model.ReadLogEntry
 import com.vibetuned.ln_reader.data.model.ReadLogKind
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.ZoneId
 import java.util.UUID
 
 /**
@@ -32,6 +33,48 @@ class ReadLogRepository(
 
     suspend fun forBook(bookId: String): List<ReadLogEntry> =
         dao.forBook(bookId).map { it.toDomain() }
+
+    /**
+     * Sessions bucketed for the usage chart. Only rows that reach into the charted window are
+     * read, so the query stays small however long the history gets.
+     */
+    suspend fun stats(
+        granularity: StatsGranularity,
+        nowMs: Long = System.currentTimeMillis(),
+        zone: ZoneId = ZoneId.systemDefault()
+    ): ReadingStats {
+        val from = ReadingStatsBuilder.windowStartMs(granularity, nowMs, zone)
+        val entries = dao.endingAfter(from).map { it.toDomain() }
+        return ReadingStatsBuilder.build(entries, granularity, nowMs, zone)
+    }
+
+    /** One page of history, newest first — the details list loads these as it scrolls. */
+    suspend fun page(limit: Int, offset: Int): List<ReadLogEntry> =
+        dao.page(limit, offset).map { it.toDomain() }
+
+    suspend fun count(): Int = dao.count()
+
+    /** Replaces all history. Debug seeding only — nothing in the app deletes the log. */
+    suspend fun replaceAll(entries: List<ReadLogEntry>) {
+        dao.deleteAll()
+        entries.forEach { e ->
+            dao.insert(
+                ReadLogEntity(
+                    id = e.id,
+                    bookId = e.bookId,
+                    bookTitle = e.bookTitle,
+                    kind = when (e.kind) {
+                        ReadLogKind.Listen -> READ_LOG_KIND_LISTEN
+                        ReadLogKind.Read -> READ_LOG_KIND_READ
+                    },
+                    startedAt = e.startedAt,
+                    endedAt = e.endedAt,
+                    startPosition = e.startPosition,
+                    endPosition = e.endPosition
+                )
+            )
+        }
+    }
 
     /** Opens a session and returns its id. [position] is playback ms (listen) or spine index (read). */
     suspend fun start(bookId: String, bookTitle: String, kind: ReadLogKind, position: Long): String {

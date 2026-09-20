@@ -27,6 +27,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,18 +36,40 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.material3.HorizontalDivider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vibetuned.ln_reader.ui.common.appContainer
+import com.vibetuned.ln_reader.ui.stats.StatsSection
+import com.vibetuned.ln_reader.ui.stats.StatsViewModel
+import com.vibetuned.ln_reader.ui.timer.TimerControls
+import com.vibetuned.ln_reader.ui.timer.TimerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onOpenSessions: () -> Unit = {}) {
     val container = appContainer()
     val appContext = LocalContext.current.applicationContext
     val viewModel: SettingsViewModel = viewModel(
         factory = SettingsViewModel.factory(appContext, container.downloadPreferences)
     )
+    // The sleep timer keeps its own ViewModel — the same one the player's timer sheet uses — so
+    // the two surfaces stay in step without Settings knowing anything about playback.
+    val timerViewModel: TimerViewModel = viewModel(
+        factory = TimerViewModel.factory(
+            playerHolder = container.playerHolder,
+            bookRepository = container.bookRepository,
+            sleepTimer = container.sleepTimerController
+        )
+    )
+    val statsViewModel: StatsViewModel = viewModel(
+        factory = StatsViewModel.factory(container.readLogRepository)
+    )
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val timerState by timerViewModel.state.collectAsStateWithLifecycle()
+    val statsState by statsViewModel.state.collectAsStateWithLifecycle()
+
+    // The log grows while you listen; re-aggregate each time this screen is shown.
+    LaunchedEffect(Unit) { statsViewModel.refresh() }
     val scroll = rememberScrollState()
 
     val pickFolder = rememberLauncherForActivityResult(
@@ -96,6 +119,59 @@ fun SettingsScreen() {
                         "folder is selected here.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(Modifier.height(28.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(20.dp))
+
+                Text(
+                    "Time spent",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "How long each book has been open, listening and reading together. " +
+                        "Tap Details for the individual sessions.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                StatsSection(
+                    state = statsState,
+                    onGranularityChange = statsViewModel::setGranularity,
+                    onOpenSessions = onOpenSessions
+                )
+
+                Spacer(Modifier.height(28.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(20.dp))
+
+                Text(
+                    "Sleep timer",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Stop playback after a stretch of listening or at a chapter boundary. " +
+                        "Picking an option while a timer runs replaces it.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                TimerControls(
+                    state = timerState,
+                    // This column already insets its content; don't stack a second margin.
+                    horizontalPadding = 0.dp,
+                    onStartTime = { timerViewModel.startTime(it) },
+                    onStartChapters = { timerViewModel.startChapters(it) },
+                    onStartEndOfChapter = { timerViewModel.startEndOfChapter() },
+                    onCancel = timerViewModel::cancel,
+                    onPostpone = { timerViewModel.postpone() },
+                    onDismissExpired = timerViewModel::dismissExpired,
+                    onFadeOutSecondsChanged = timerViewModel::setFadeOutSeconds
                 )
             }
         }

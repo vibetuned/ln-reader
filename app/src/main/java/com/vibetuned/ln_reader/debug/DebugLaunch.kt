@@ -5,6 +5,8 @@ import androidx.core.net.toUri
 import androidx.navigation.NavHostController
 import com.vibetuned.ln_reader.BuildConfig
 import com.vibetuned.ln_reader.data.model.Book
+import com.vibetuned.ln_reader.data.model.ReadLogEntry
+import com.vibetuned.ln_reader.data.model.ReadLogKind
 import com.vibetuned.ln_reader.di.AppContainer
 import com.vibetuned.ln_reader.player.SleepTimerConfig
 import com.vibetuned.ln_reader.ui.navigation.PlayerRoute
@@ -41,13 +43,15 @@ import java.io.File
  * | `play` | bool | start playback of the opened book |
  * | `showReader` | bool | open the reader for the opened book |
  * | `showImages` | bool | open the image viewer for the opened book |
- * | `armTimer` | int (minutes) | arm the sleep timer and show the Timer tab |
- * | `armChapterTimer` | bool | arm an end-of-chapter timer and show the Timer tab |
+ * | `armTimer` | int (minutes) | arm the sleep timer and show Settings (where the timer lives) |
+ * | `armChapterTimer` | bool | arm an end-of-chapter timer and show Settings |
  * | `textZoom` | int (percent) | set reader text zoom |
  * | `readerDark` | bool | set reader dark mode |
  * | `readerSearch` | string | run this search once the reader opens |
  * | `readerPage` | int | turn the reader to this 1-based page once it opens (exercises the page mark) |
- * | `tab` | library / player / images / timer / settings | end on this tab |
+ * | `seedStats` | bool | replace the usage log with generated sessions across the library (see [seedStats]) |
+ * | `seedDays` | int | how far back to generate, default 120 |
+ * | `tab` | library / player / images / settings (`timer` is an alias) | end on this tab |
  *
  * Files must be somewhere the app can read without a picker; `adb push` to the app's external
  * files dir (`/sdcard/Android/data/com.vibetuned.ln_reader/files/…`) is the reliable spot.
@@ -68,13 +72,16 @@ data class DebugLaunchRequest(
     val readerDark: Boolean?,
     val readerSearch: String?,
     val readerPage: Int?,
+    val seedStats: Boolean,
+    val seedDays: Int?,
     val tab: String?
 ) {
     val isEmpty: Boolean
         get() = autoImport.isEmpty() && !autoPlay && !testCollectionAdvance && openTitle == null &&
             readTitle == null && seekToSeconds == null && !play && !showReader && !showImages &&
             armTimerMinutes == null && !armChapterTimer && textZoom == null && readerDark == null &&
-            readerSearch == null && readerPage == null && tab == null
+            readerSearch == null && readerPage == null && !seedStats && seedDays == null &&
+            tab == null
 }
 
 object DebugLaunch {
@@ -101,6 +108,8 @@ object DebugLaunch {
             readerDark = extras.takeIf { it.containsKey("readerDark") }?.getBoolean("readerDark"),
             readerSearch = extras.getString("readerSearch"),
             readerPage = extras.takeIf { it.containsKey("readerPage") }?.getInt("readerPage"),
+            seedStats = extras.getBoolean("seedStats", false),
+            seedDays = extras.takeIf { it.containsKey("seedDays") }?.getInt("seedDays"),
             tab = extras.getString("tab")
         )
         return request.takeUnless { it.isEmpty }
@@ -132,6 +141,8 @@ object DebugLaunch {
             }
             imported += book
         }
+        if (request.seedStats) seedStats(container, request.seedDays ?: DEFAULT_SEED_DAYS)
+
         val first = imported.firstOrNull() ?: return
 
         if (request.testCollectionAdvance) {
@@ -189,24 +200,84 @@ object DebugLaunch {
         request.armTimerMinutes?.let { minutes ->
             awaitController(container)
             container.sleepTimerController.start(SleepTimerConfig.TimeBased(minutes * 60_000L, fadeOutSeconds = 10))
-            navController.navigate(TopLevelDestination.Timer.route) { launchSingleTop = true }
+            navController.navigate(TopLevelDestination.Settings.route) { launchSingleTop = true }
         }
         if (request.armChapterTimer) {
             awaitController(container)
             container.sleepTimerController.start(SleepTimerConfig.ChapterBased(1, fadeOutSeconds = 10))
-            navController.navigate(TopLevelDestination.Timer.route) { launchSingleTop = true }
+            navController.navigate(TopLevelDestination.Settings.route) { launchSingleTop = true }
         }
         request.tab?.let { name ->
             val dest = when (name.lowercase()) {
                 "library" -> TopLevelDestination.Library
                 "player" -> TopLevelDestination.Player
                 "images" -> TopLevelDestination.Viewer
-                "timer" -> TopLevelDestination.Timer
-                "settings" -> TopLevelDestination.Settings
+                // "timer" still resolves, so existing scripts keep working after the merge.
+                "timer", "settings" -> TopLevelDestination.Settings
                 else -> null
             }
             dest?.let { navController.navigate(it.route) { launchSingleTop = true } }
         }
+    }
+
+    /**
+     * Replaces the usage log with generated sessions so the stats chart has something to show.
+     *
+     * Deterministic (`Random(seed)` keyed off the day) so a rerun produces the same history and
+     * screenshots stay comparable. Sessions are shaped like real use rather than uniform noise:
+     * a few per day at plausible hours, of plausible lengths, mostly listening, and weighted so
+     * the first books in the library dominate — a flat distribution would make every bar the same
+     * height and hide whether the stack is actually working.
+     */
+    private suspend fun seedStats(container: AppContainer, days: Int) {
+        val books = container.bookRepository.books().first()
+        if (books.isEmpty()) {
+            android.util.Log.w(TAG, "seedStats: no books in the library, nothing to attribute to")
+            return
+        }
+        val zone = java.time.ZoneId.systemDefault()
+        val today = java.time.LocalDate.now(zone)
+        val sessions = mutableListOf<ReadLogEntry>()
+
+        for (dayOffset in days downTo 0) {
+            val date = today.minusDays(dayOffset.toLong())
+            val random = kotlin.random.Random(date.toEpochDay())
+            // Most days have some listening; a third are quiet, which gives the chart gaps.
+            val count = when (random.nextInt(100)) {
+                in 0..32 -> 0
+                in 33..70 -> 1
+                in 71..92 -> 2
+                else -> 3
+            }
+            val startHours = listOf(8, 12, 18, 21).shuffled(random)
+            repeat(count) { i ->
+                // Books early in the library get picked more often, so totals differ visibly.
+                val weighted = random.nextInt(books.size * (books.size + 1) / 2)
+                var index = 0
+                var acc = books.size
+                while (acc <= weighted && index < books.lastIndex) { index++; acc += books.size - index }
+                val book = books[index]
+
+                val minutes = 8 + random.nextInt(68)
+                val hour = startHours[i % startHours.size]
+                val start = date.atTime(hour, random.nextInt(60))
+                    .atZone(zone).toInstant().toEpochMilli()
+                val kind = if (book.hasAudio && random.nextInt(100) < 78) ReadLogKind.Listen
+                else ReadLogKind.Read
+                sessions += ReadLogEntry(
+                    id = "seed-${date}-$i",
+                    bookId = book.id,
+                    bookTitle = book.title,
+                    kind = kind,
+                    startedAt = start,
+                    endedAt = start + minutes * 60_000L,
+                    startPosition = 0,
+                    endPosition = minutes * 60_000L
+                )
+            }
+        }
+        container.readLogRepository.replaceAll(sessions)
+        android.util.Log.i(TAG, "seedStats: wrote ${sessions.size} sessions over $days days")
     }
 
     private suspend fun findByTitle(container: AppContainer, prefix: String): Book? {
@@ -227,5 +298,6 @@ object DebugLaunch {
         withTimeoutOrNull(CONTROLLER_TIMEOUT_MS) { container.playerHolder.controller.filterNotNull().first() }
 
     private const val TAG = "DebugLaunch"
+    private const val DEFAULT_SEED_DAYS = 120
     private const val CONTROLLER_TIMEOUT_MS = 5_000L
 }

@@ -205,4 +205,19 @@ interface ReadLogDao {
 
     @Query("SELECT * FROM read_log WHERE bookId = :bookId ORDER BY startedAt ASC")
     suspend fun forBook(bookId: String): List<ReadLogEntity>
+
+    /** Sessions overlapping a window — what the usage chart aggregates. */
+    @Query("SELECT * FROM read_log WHERE endedAt >= :fromMs ORDER BY startedAt ASC")
+    suspend fun endingAfter(fromMs: Long): List<ReadLogEntity>
+
+    /** One page of history, newest first. The details list pulls these as it scrolls. */
+    @Query("SELECT * FROM read_log ORDER BY startedAt DESC LIMIT :limit OFFSET :offset")
+    suspend fun page(limit: Int, offset: Int): List<ReadLogEntity>
+
+    @Query("SELECT COUNT(*) FROM read_log")
+    suspend fun count(): Int
+
+    /** A running session is one whose row still has to be closed; seeding replaces history only. */
+    @Query("DELETE FROM read_log")
+    suspend fun deleteAll()
 }

@@ -50,10 +50,12 @@ com.vibetuned.ln_reader
     │                              + SpeedSheet + SleepTimerSheet + PlayerViewModel
     ├── reader/                    ReaderScreen + ReaderViewModel (EPUB WebView + beat sync, light/dark + text zoom)
     │                              + ReaderSearch (search bar, results list, highlight JS)
-    ├── settings/                  SettingsScreen + SettingsViewModel
+    ├── settings/                  SettingsScreen (Downloads + Time spent + Sleep timer) + SettingsViewModel
+    ├── stats/                     StatsSection (chart) + StatsViewModel,
+    │                              SessionsScreen (paged history) + SessionsViewModel
     ├── theme/                     Color / Theme / Type (Material 3, fixed Athenaeum brand scheme)
-    ├── timer/                     TimerScreen + TimerControls + TimerViewModel
-    │                              + SleepTimerExpiredDialog (global expiry prompt)
+    ├── timer/                     TimerControls + TimerViewModel (hosted by Settings and by the
+    │                              player's sheet) + SleepTimerExpiredDialog (global expiry prompt)
     └── viewer/                    ViewerScreen + FullScreenImageViewer + ViewerViewModel
 ```
 
@@ -113,7 +115,7 @@ Migrations (all incremental and non-destructive — real users are on the Play S
 - `CollectionRepository` — `collections()` flow (each `Collection` carries a live book count and up to nine contained cover paths for its tile art, built by `combine`-ing the counts query with a covers query), `collection(id)` flow, `create(name)`, `addBook` / `removeBook`, and `delete(id)` (moves any remaining books back to the top level, then drops the row).
 - `PositionRepository` — `observe` / `get` / `save` / `clear` keyed by `bookId`, plus `observeAllPositions()` (bookId → ms map, feeds the per-book library progress bars), `lastPlayedBookId()` (most-recent existing position — resume-on-launch) and `lastPlayed()` (the same row with its timestamp, to weigh against the last *reading* save).
 - `ReadingPositionRepository` — the reader's saved place per book: `observe` / `get` / `save` / `clear`, `observeAll()` (feeds EPUB-only progress bars) and `lastRead()`.
-- `ReadLogRepository` — the usage log: `start` / `heartbeat` / `end` around a session, plus `observeAll()` / `between(from, to)` / `forBook(id)` for reading it back.
+- `ReadLogRepository` — the usage log: `start` / `heartbeat` / `end` around a session, plus `observeAll()` / `between(from, to)` / `forBook(id)` for reading it back, `stats(granularity)` for the chart, and `page(limit, offset)` / `count()` for the history list.
 
 All repositories run their work on `Dispatchers.IO` and bundle multi-table writes in `database.withTransaction { }`.
 
@@ -193,6 +195,42 @@ and another starting — `isPlaying` never dips between them) and in `onDestroy`
 **Rows have no foreign key and outlive their book on purpose** — deleting a
 finished book shouldn't erase the hours spent on it, which is why the title is
 snapshotted into the row.
+
+## Usage statistics
+
+The Settings tab charts how long each book has been open — listening and reading together, since
+both are `read_log` sessions.
+
+### Bucketing (`data/repo/ReadingStats.kt`)
+
+`ReadingStatsBuilder` turns sessions into bars. It is pure and unit-tested, and deliberately
+calendar-aware rather than slicing fixed widths back from now, so "this week" means the week you
+would name. Two rules earn their keep:
+
+- **Sessions are clipped to every bucket they overlap**, not counted whole in the one they started
+  in. An hour that runs through midnight is half an hour on each day — otherwise the bars don't
+  add up to the total.
+- **Books are ordered by their share of the window**, and that order is also the shade order, so
+  the largest book anchors the bottom of every stack and the legend reads top-down.
+
+Windows: 14 days, 12 weeks, 12 months, 5 years. `windowStartMs` lets the repository fetch only
+sessions that reach into the charted window, so the query stays small however long history grows.
+
+### Chart (`ui/stats/StatsSection.kt`)
+
+Drawn from layout — each bar is a `Column` of weight-proportioned `Box`es — rather than pulling in
+a charting library for one screen. Shades step through the palette from the deep binding green out
+to parchment with the amber accent last; more books than shades wraps, which is why the legend
+names them. Empty buckets draw a hairline baseline so a quiet day reads as "nothing" rather than
+as missing data.
+
+### History (`ui/stats/SessionsScreen.kt`)
+
+"Details" opens every recorded session, newest first. History is unbounded, so the list is **paged**:
+`SessionsViewModel` holds only what has been scrolled to and appends 30 rows at a time as the tail
+comes into view (`derivedStateOf` keeps that check off the recomposition path). Pages are addressed
+by offset rather than a cursor because the log is append-only and ordered by a fixed key, so a page
+can't shift underneath a scroll.
 
 ## Debug launch hooks
 
@@ -489,6 +527,15 @@ session changes.
 - **Known limits**: receivers cap playback speed at 0.5×–2×; the sleep-timer
   fade adjusts the receiver's stream volume rather than a local ramp.
 
+## Settings
+
+One tab, two sections: **Downloads** (where cloud imports are copied to) and **Sleep timer**.
+The timer had its own tab until the two were merged — it is a setting you adjust occasionally,
+not a destination, and four bottom-bar items read better than five. `SettingsScreen` hosts
+`TimerControls` with `horizontalPadding = 0` because its own column already insets the content,
+and drives it through the same `TimerViewModel` the player's timer sheet uses, so the two
+surfaces never disagree.
+
 ## Sleep timer
 
 `SleepTimerController` is process-scoped (a peer of `PlayerHolder` in `AppContainer`) and drives playback through the same `MediaController` the UI uses — no extra plumbing across the service boundary.
@@ -535,8 +582,7 @@ collection?collectionId={collectionId}        opens one collection (reuses Libra
 player?bookId={bookId}&autoPlay={autoPlay}     args optional — null / false via bottom nav
 viewer?bookId={bookId}    bookId optional — null when entered via bottom nav
 reader?bookId={bookId}    same shape
-timer
-settings
+settings                  Downloads + Sleep timer (the timer has no tab of its own)
 ```
 
 `MainActivity` renders a Material 3 `NavigationBar`; the selected state matches each tab against `currentDestination.route.substringBefore('?')` so the optional-arg routes still highlight correctly.

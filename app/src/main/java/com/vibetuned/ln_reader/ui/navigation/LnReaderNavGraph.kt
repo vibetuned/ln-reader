@@ -11,7 +11,7 @@ import com.vibetuned.ln_reader.ui.library.ReorderScreen
 import com.vibetuned.ln_reader.ui.player.PlayerScreen
 import com.vibetuned.ln_reader.ui.reader.ReaderScreen
 import com.vibetuned.ln_reader.ui.settings.SettingsScreen
-import com.vibetuned.ln_reader.ui.timer.TimerScreen
+import com.vibetuned.ln_reader.ui.stats.SessionsScreen
 import com.vibetuned.ln_reader.ui.viewer.ViewerScreen
 
 object PlayerRoute {
@@ -33,6 +33,10 @@ object ReaderRoute {
 object CollectionRoute {
     const val PATTERN = "collection?collectionId={collectionId}"
     fun forCollection(collectionId: String) = "collection?collectionId=$collectionId"
+}
+
+object SessionsRoute {
+    const val PATTERN = "sessions"
 }
 
 object ReorderRoute {
@@ -163,7 +167,11 @@ fun LnReaderNavGraph(
                 onBack = { navController.popBackStack() }
             )
         }
-        composable(TopLevelDestination.Timer.route) { TimerScreen() }
-        composable(TopLevelDestination.Settings.route) { SettingsScreen() }
+        composable(TopLevelDestination.Settings.route) {
+            SettingsScreen(onOpenSessions = { navController.navigate(SessionsRoute.PATTERN) })
+        }
+        composable(SessionsRoute.PATTERN) {
+            SessionsScreen(onBack = { navController.popBackStack() })
+        }
     }
 }

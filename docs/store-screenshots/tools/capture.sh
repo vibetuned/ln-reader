@@ -50,8 +50,12 @@ UI tap text=Library >/dev/null
 shot 01_library 4
 
 echo "== 04 timer =="
-UI tap text=Timer >/dev/null; sleep 3
+# The sleep timer lives in Settings now (it lost its own tab), below the Downloads section —
+# hence the scroll before the presets are reachable.
+UI tap text=Settings >/dev/null; sleep 3
 if UI find text=Cancel >/dev/null 2>&1; then UI tap text=Cancel >/dev/null; sleep 2; fi
+# Scroll past Downloads so the presets are on screen; the swipe is a no-op if they already are.
+A shell input swipe 540 1500 540 600 300; sleep 2
 UI tap "text=30 min" >/dev/null
 shot 04_timer 4
 

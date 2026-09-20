@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.vibetuned.ln_reader.player.SleepTimerConfig
 import com.vibetuned.ln_reader.player.SleepTimerState
@@ -33,6 +34,11 @@ private val FADE_OPTIONS = listOf(0, 10, 30, 60, 300)
 @Composable
 fun TimerControls(
     state: TimerUiState,
+    /**
+     * Inset applied to the controls' own content. The timer sheet wants the standard 24dp; the
+     * Settings screen already pads its column and passes 0 so the two don't stack.
+     */
+    horizontalPadding: Dp = 24.dp,
     onStartTime: (minutes: Int) -> Unit,
     onStartChapters: (count: Int) -> Unit,
     onStartEndOfChapter: () -> Unit,
@@ -42,7 +48,7 @@ fun TimerControls(
     onFadeOutSecondsChanged: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+    Column(modifier = modifier.padding(horizontal = horizontalPadding, vertical = 8.dp)) {
         state.timer?.let { active ->
             ActiveTimerCard(active, onCancel)
             Spacer(Modifier.height(24.dp))
