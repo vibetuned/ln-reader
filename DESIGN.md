@@ -8,7 +8,7 @@
 | UI | Jetpack Compose + Material 3, single Activity, Compose Navigation |
 | Playback | Media3 / ExoPlayer (`MediaSessionService`); Media3 `CastPlayer` while casting |
 | Casting | Google Cast framework (default receiver) + embedded NanoHTTPD serving the m4b over LAN |
-| Persistence | Room (current version 5), DataStore Preferences |
+| Persistence | Room (current version 7), DataStore Preferences |
 | Image loading | Coil 3 |
 | EPUB reader | `androidx.webkit` WebView + `WebViewAssetLoader` |
 | DI | Manual — a single `AppContainer` exposes lazy singletons |
@@ -21,15 +21,18 @@ com.vibetuned.ln_reader
 ├── LnReaderApplication            owns the AppContainer
 ├── MainActivity                   sets Compose content, requests POST_NOTIFICATIONS;
 │                                   a FragmentActivity (Cast dialogs) locked to portrait
+├── debug/DebugLaunch              DEBUG-only Intent-extra smoke-test hooks (see below)
 ├── di/AppContainer                lazy singletons: DB, repos, parser, player, sleep timer, prefs
 ├── data/
 │   ├── db/                        Room: BookEntity, ChapterEntity, PositionEntity,
-│   │                               EmbeddedImageEntity, CollectionEntity, DAOs, LnReaderDatabase
+│   │                               EmbeddedImageEntity, CollectionEntity, ReadingPositionEntity,
+│   │                               ReadLogEntity, DAOs, LnReaderDatabase
 │   ├── model/                     Domain models (Book, Collection, Chapter, …)
 │   ├── prefs/                     DataStore wrappers: DownloadPreferences, ViewerPreferences,
 │   │                               LibraryPreferences (sort + per-collection manual order),
 │   │                               ReaderPreferences (dark + text zoom)
 │   └── repo/                      BookRepository, CollectionRepository, PositionRepository,
+│                                   ReadingPositionRepository, ReadLogRepository,
 │                                   CollectionOrdering (shared sort/manual), (+ Mappers)
 ├── m4b/                           Custom MP4 atom parser (M4bSource, AtomReader, M4bParser)
 ├── companion/                     EpubBook (unzip + OPF spine), SyncManifest (+ parser),
@@ -64,6 +67,8 @@ class AppContainer(context: Context) {
     val bookRepository: BookRepository by lazy { … }
     val collectionRepository: CollectionRepository by lazy { … }
     val positionRepository: PositionRepository by lazy { … }
+    val readingPositionRepository: ReadingPositionRepository by lazy { … }
+    val readLogRepository: ReadLogRepository by lazy { … }
     val playerHolder: PlayerHolder by lazy { … }
     val sleepTimerController: SleepTimerController by lazy { … }
     val downloadPreferences: DownloadPreferences by lazy { … }
@@ -81,14 +86,16 @@ ViewModels are created with `viewModel(factory = SomeViewModel.factory(deps…))
 
 ## Data layer
 
-### Schema (Room v5)
+### Schema (Room v7)
 
 ```
 books(id PK, uri, title, author, album, durationMs, coverPath, importedAt,
-      fileSize, syncKey, isDownloaded, epubPath, syncPath, collectionId)
+      fileSize, syncKey, isDownloaded, epubPath, syncPath, collectionId, mediaKind, spineCount)
 collections(id PK, name, createdAt)
 chapters(id PK auto, bookId FK, orderIndex, title, startMs)
 positions(bookId PK, positionMs, updatedAt)
+reading_positions(bookId PK, spineIndex, scrollFraction, spineCount, updatedAt)
+read_log(id PK, bookId, bookTitle, kind, startedAt, endedAt, startPosition, endPosition)
 embedded_images(id PK auto, bookId FK, orderIndex, mimeType, cachePath)
 ```
 
@@ -97,14 +104,128 @@ Migrations (all incremental and non-destructive — real users are on the Play S
 - **v2 → v3** added `isDownloaded INTEGER NOT NULL DEFAULT 0`. Used by `BookRepository.delete` to decide whether the file at `uri` is a copy we own (delete it) or the user's original source (don't touch).
 - **v3 → v4** added `epubPath TEXT` and `syncPath TEXT` — local paths to the optional EPUB and sync-manifest companions.
 - **v4 → v5** created the `collections` table and added `books.collectionId TEXT` (nullable; `null` = top-level library). A book belongs to at most one collection; collections don't nest.
+- **v5 → v6** added `books.mediaKind TEXT NOT NULL DEFAULT 'audio'` (see [EPUB-only books](#epub-only-books)) and created `reading_positions` + `read_log` (see [Reading position](#reading-position) and [Usage log](#usage-log)). `read_log` has no foreign key on purpose — usage history outlives the book.
+- **v6 → v7** added `books.spineCount INTEGER NOT NULL DEFAULT 0` — an EPUB-only book's page count, taken at import so the library tile can read "6 / 45" before the book has ever been opened.
 
 ### Repositories
 
 - `BookRepository` — `books()` / `topLevelBooks()` (`collectionId IS NULL`) / `booksInCollection(id)` flows, `import(uri, collectionId?, onProgress)`, `delete(id)`, `getDetail(id)`, `bookDetail(id)` flow, plus companion ops `attachEpub` / `attachSync` / `detachEpub` / `detachSync`.
 - `CollectionRepository` — `collections()` flow (each `Collection` carries a live book count and up to nine contained cover paths for its tile art, built by `combine`-ing the counts query with a covers query), `collection(id)` flow, `create(name)`, `addBook` / `removeBook`, and `delete(id)` (moves any remaining books back to the top level, then drops the row).
-- `PositionRepository` — `observe` / `get` / `save` / `clear` keyed by `bookId`, plus `observeAllPositions()` (bookId → ms map, feeds the per-book library progress bars) and `lastPlayedBookId()` (most-recent existing position — resume-on-launch).
+- `PositionRepository` — `observe` / `get` / `save` / `clear` keyed by `bookId`, plus `observeAllPositions()` (bookId → ms map, feeds the per-book library progress bars), `lastPlayedBookId()` (most-recent existing position — resume-on-launch) and `lastPlayed()` (the same row with its timestamp, to weigh against the last *reading* save).
+- `ReadingPositionRepository` — the reader's saved place per book: `observe` / `get` / `save` / `clear`, `observeAll()` (feeds EPUB-only progress bars) and `lastRead()`.
+- `ReadLogRepository` — the usage log: `start` / `heartbeat` / `end` around a session, plus `observeAll()` / `between(from, to)` / `forBook(id)` for reading it back.
 
 All repositories run their work on `Dispatchers.IO` and bundle multi-table writes in `database.withTransaction { }`.
+
+## EPUB-only books
+
+A library entry can be an EPUB with no audio. `books.mediaKind` (`audio` /
+`epub`) is the flag; `uri` stays empty and `durationMs` `0` for an EPUB-only
+book, so **read `Book.hasAudio`, never infer from those**. Keeping a flag beside
+a NOT NULL `uri` avoids a table-rebuild migration on store-installed databases.
+
+- **Import.** `BookRepository.import` dispatches on the picked file (`.epub`
+  extension or the `application/epub+zip` MIME type) to `importEpub`, which
+  copies the file to `companions/<id>/book.epub` — the same place an attached
+  companion lives — extracts it to `epubs/<id>/`, and takes title, author and
+  cover from the OPF (`EpubReader.parse` now returns them). The cover is copied
+  out to `books/<id>/images/0.<ext>` so `coverPath` means the same thing it does
+  for an audiobook and survives the extraction dir being rebuilt. Everything
+  downstream then treats the book as an audiobook whose EPUB companion happens
+  to be the whole book.
+- **Library tile.** The third line answers "how much of this is there": an audiobook's running
+  time (`9h 26m`), or an EPUB-only book's place in its pages (`6 / 45`). The total comes from
+  `books.spineCount`; rows imported before that column existed fall back to the count the reader
+  saved on `reading_positions`, and with neither we can only honestly say `EPUB`.
+- **Cover resolution** handles both spellings: EPUB 3's manifest
+  `properties="cover-image"` and EPUB 2's `<meta name="cover" content="<id>"/>`,
+  each resolved through the manifest. Dublin Core elements are matched on their
+  local name because the pull parser isn't namespace-aware (`dc:title`).
+- **No player.** `PlayerViewModel.open` refuses a book without audio with an
+  explanation rather than preparing an empty URI; the library's tap-to-open and
+  the detail sheet's primary button become *Read*; image/companion sections are
+  hidden; and `CollectionAdvanceController` skips EPUB-only neighbours when
+  advancing a listening run.
+
+## Reading position
+
+`reading_positions` (bookId, spineIndex, scrollFraction, spineCount, updatedAt)
+is the reader's saved place — the EPUB counterpart of `positions`. An
+audiobook's reader follows the narration, so it only matters when there is none
+to follow: `ReaderViewModel.open` restores from it whenever the book isn't the
+one currently loaded in the player, and `ReaderScreen` samples the page's scroll
+offset (1.5 s, only writing on a real move) as you read.
+
+- Restore runs twice, 120 ms and 400 ms after the page loads, because a page
+  with images grows after `onPageFinished` and a single early scroll lands
+  short. `ReaderUiState.restoreScrollFraction` is one-shot: sampling is paused
+  until it has been applied, so a fresh page's offset of 0 can't overwrite the
+  position being restored.
+- The final save and the read-log close happen on a `persistScope` that outlives
+  `viewModelScope`, which is cancelled as the screen is torn down.
+- `spineCount` rides along so the library can draw an EPUB-only book's progress
+  bar without opening the EPUB.
+
+**Resume on launch** (`MainActivity.restoreLastBook`) weighs
+`PositionRepository.lastPlayed()` against `ReadingPositionRepository.lastRead()`
+and reopens whichever is newer — the player for an audiobook, the reader for a
+book without audio.
+
+## Usage log
+
+`read_log` records one row per listening or reading session, for a time-series
+view later: id, bookId, a snapshotted bookTitle, kind (`listen` / `read`),
+startedAt/endedAt, and start/end position (playback ms, or spine index for a
+read).
+
+A row's life is start → heartbeat… → end. It opens with `endedAt == startedAt`;
+while the session runs a heartbeat advances `endedAt` (5 s, on `PlaybackService`'s
+existing position-save tick; 10 s in the reader), so a process killed mid-session
+still leaves an honest duration; ending closes it. The open session is held as a
+`Deferred<String>` because the insert is asynchronous — a heartbeat or close
+landing first must still address the right row.
+
+`PlaybackService` opens a session on `onIsPlayingChanged(true)` and closes it on
+pause, on `onMediaItemTransition` (continuing a collection is one session ending
+and another starting — `isPlaying` never dips between them) and in `onDestroy`.
+`ReaderViewModel` opens one per book load and closes it in `onCleared`.
+
+**Rows have no foreign key and outlive their book on purpose** — deleting a
+finished book shouldn't erase the hours spent on it, which is why the title is
+snapshotted into the row.
+
+## Debug launch hooks
+
+Debug builds parse smoke-test instructions from the launching Intent's extras
+(`debug/DebugLaunch.kt`) — the Android counterpart of the iOS app's
+`-autoImport` / `-openTitle` launch arguments. Release builds parse nothing
+(`BuildConfig.DEBUG` gate).
+
+```
+adb shell am start -n com.vibetuned.ln_reader/.MainActivity \
+    --es autoImport /sdcard/Android/data/com.vibetuned.ln_reader/files/smoke/book.m4b \
+    --es openTitle "A Certain" --ei seekTo 120 --ez play true
+```
+
+| extra | type | effect |
+| --- | --- | --- |
+| `autoImport` | string / `--esa` array | import each path (m4b or epub); an m4b picks up a sibling `*.epub` + `sync_manifest.json` |
+| `autoPlay` | bool | open the first import playing (reader, for an EPUB-only book) |
+| `testCollectionAdvance` | bool | put the imports in a "Test Shelf", open the first 20 s from its end |
+| `openTitle` | string | open the book whose title starts with this — player, or reader when it has no audio |
+| `readTitle` | string | open the reader for the matching book |
+| `seekTo` / `play` | int seconds / bool | seek and start the opened book |
+| `showReader` / `showImages` | bool | open the reader / image viewer for the opened book |
+| `armTimer` / `armChapterTimer` | int minutes / bool | arm the sleep timer and show the Timer tab |
+| `textZoom` / `readerDark` | int percent / bool | reader appearance |
+| `readerSearch` | string | run this search once the reader opens |
+| `readerPage` | int | turn the reader to this 1-based page (exercises the page mark) |
+| `tab` | library/player/images/timer/settings | end on this tab |
+
+Files must be readable without a picker: `adb push` to the app's external files
+dir (`/sdcard/Android/data/com.vibetuned.ln_reader/files/…`) is the reliable
+spot. Imports run *before* resume-on-launch (so a title asked for in the same
+launch exists) and navigation *after* (so it wins over the restored book).
 
 ## Collections
 
@@ -219,6 +340,15 @@ Parses `sync_manifest.json` (via `org.json`) into:
 ### Reader (`companion/EpubBook.kt` + `ui/reader/`)
 
 - `EpubReader.ensureExtracted` unzips the EPUB into `filesDir/epubs/<bookId>/` once (Zip path-traversal guarded, idempotent). `parse` reads `META-INF/container.xml` → OPF, then builds the ordered spine as `{ rootRelativePath, url }`, where `url` is under `https://appassets.androidplatform.net/epub/`.
+- **Page identity, not a loaded flag.** `EpubWebView` keys its injection effects (theme,
+  beat highlight, search highlight, scroll restore/sample) on `pageLoads` — a counter bumped in
+  `onPageFinished` — plus `loadedUrl`. It must not be a `pageLoaded` boolean: these pages are
+  local files and can finish loading inside a single Compose frame, so a `true → false → true`
+  toggle coalesces into *no observed change*, the effects never restart, and everything they
+  injected stays with the previous document. That is exactly how the dark theme used to get
+  dropped when audio sync turned the page the instant the first page appeared — leaving black
+  text on the dark surface, with only the beat highlight visible (its own key, `activeBeatId`,
+  had changed, so that one effect did re-run).
 - `ReaderScreen` hosts a `WebView` whose `WebViewClientCompat.shouldInterceptRequest` delegates to a `WebViewAssetLoader` with an `InternalStoragePathHandler` mounted at `/epub/` → the extracted dir. This serves the XHTML + relative images/CSS over a virtual https origin (no `file://` security issues).
 - **Appearance** (persisted app-wide via `ReaderPreferences`): a top-bar toggle switches light / dark, and A− / A+ buttons drive `settings.textZoom` (font scaling, 80–250 %). Dark mode is a `<style>` injected with `evaluateJavascript` on every page load — dark surface + light text, recoloured links, element backgrounds forced transparent — plus the WebView background painted dark. The active-beat highlight carries its own higher-specificity `!important` rule so the theme's transparent-background override doesn't hide it.
 - `ReaderViewModel` polls the shared `PlayerHolder` controller every 400 ms. When the controller is playing **this** book, it maps position → active beat (`SyncManifest.beatAt`) → spine page. Highlighting is injected with `evaluateJavascript`: a `.lnvox-active` style plus `querySelector('[data-beat-id="…"]')` → add class + `scrollIntoView`.
@@ -308,7 +438,7 @@ The scrubber works in chapter-local coordinates: the slider's value range is the
 
 **Chapter selector.** The current chapter title and "Chapter N of M" are stacked into one tappable control under the book title that opens the `ChapterListSheet`.
 
-**Mini-player** (`MiniPlayer.kt`). A compact bar `MainActivity` renders just above the `NavigationBar` on every destination except the full player. It reads "now playing" straight off the `MediaController` (metadata title/artist/artwork, `isPlaying`, position) through a `produceState` that adds a `Player.Listener` and polls ~1 s — no extra state holder. Tapping the row opens the full player (`launchSingleTop`); a Read button appears when the current book has an EPUB and you aren't already in the reader.
+**Mini-player** (`MiniPlayer.kt`). A compact bar `MainActivity` renders just above the `NavigationBar` on every destination except the full player. While the reader is showing an **EPUB-only** book it hides itself (`readingBookId`): that book has no narration to control, so the bar would only offer transport for some unrelated audiobook. The exception is live playback — if audio is actually playing it stays, so the controls remain within reach. It reads "now playing" straight off the `MediaController` (metadata title/artist/artwork, `isPlaying`, position) through a `produceState` that adds a `Player.Listener` and polls ~1 s — no extra state holder. Tapping the row opens the full player (`launchSingleTop`); a Read button appears when the current book has an EPUB and you aren't already in the reader.
 
 **Resume on launch.** On a fresh process, `MainActivity` reads `PositionRepository.lastPlayedBookId()` and navigates to the player **paused** at the saved position. The once-per-launch guard is `AppContainer.lastBookRestoreHandled` (process-scoped) rather than `rememberSaveable`, which survives process death and would wrongly skip the reopen after the OS evicts the app.
 

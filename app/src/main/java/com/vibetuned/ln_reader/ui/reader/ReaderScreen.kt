@@ -37,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -53,6 +54,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewClientCompat
 import com.vibetuned.ln_reader.ui.common.appContainer
+import kotlinx.coroutines.delay
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,7 +70,11 @@ fun ReaderScreen(
             appContext = appContext,
             playerHolder = container.playerHolder,
             bookRepository = container.bookRepository,
-            readerPreferences = container.readerPreferences
+            readerPreferences = container.readerPreferences,
+            readingPositionRepository = container.readingPositionRepository,
+            readLogRepository = container.readLogRepository,
+            debugSearchQuery = container.pendingReaderSearch.also { container.pendingReaderSearch = null },
+            debugStartPage = container.pendingReaderPage.also { container.pendingReaderPage = null }
         )
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -135,7 +141,12 @@ fun ReaderScreen(
                 }
                 state.spine.isEmpty() -> Centered { Text("This EPUB has no readable pages.") }
                 else -> {
-                    EpubWebView(state = state, bookId = bookId)
+                    EpubWebView(
+                        state = state,
+                        bookId = bookId,
+                        onScroll = viewModel::reportScroll,
+                        onRestored = viewModel::consumeRestoreScroll
+                    )
                     if (state.searchActive && state.showSearchResults) {
                         SearchResultsList(
                             results = state.searchResults,
@@ -206,10 +217,29 @@ private fun ReaderTopBar(
 }
 
 @Composable
-private fun EpubWebView(state: ReaderUiState, bookId: String?) {
+private fun EpubWebView(
+    state: ReaderUiState,
+    bookId: String?,
+    onScroll: (spineIndex: Int, fraction: Float) -> Unit,
+    onRestored: () -> Unit
+) {
     val context = LocalContext.current
     var webView by remember { mutableStateOf<WebView?>(null) }
-    var pageLoaded by remember { mutableStateOf(false) }
+    /**
+     * Identity of the document currently in the WebView: a monotonically increasing count of
+     * finished loads, deliberately not a loaded/not-loaded flag.
+     *
+     * These pages are local files and can finish loading inside a single Compose frame, so a
+     * flag's true -> false -> true toggle coalesces into no observed change at all: every effect
+     * keyed on it then skips the new document and keeps whatever it injected into the old one.
+     * That silently dropped the reader theme whenever audio sync turned the page the moment the
+     * first page appeared. A counter gives each document a distinct key, so the effects always
+     * re-run against the document that is actually on screen.
+     */
+    var pageLoads by remember { mutableIntStateOf(0) }
+    var loadedUrl by remember { mutableStateOf<String?>(null) }
+    /** True when the loaded document is the page the state currently points at. */
+    val pageReady = pageLoads > 0 && loadedUrl == state.spine.getOrNull(state.currentIndex)?.url
 
     val assetLoader = remember(bookId) {
         WebViewAssetLoader.Builder()
@@ -238,12 +268,9 @@ private fun EpubWebView(state: ReaderUiState, bookId: String?) {
                         request: WebResourceRequest
                     ): WebResourceResponse? = assetLoader.shouldInterceptRequest(request.url)
 
-                    override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
-                        pageLoaded = false
-                    }
-
                     override fun onPageFinished(view: WebView, url: String?) {
-                        pageLoaded = true
+                        loadedUrl = url
+                        pageLoads++
                     }
                 }
                 webView = this
@@ -260,9 +287,9 @@ private fun EpubWebView(state: ReaderUiState, bookId: String?) {
     }
 
     // Highlight the active beat once the page is loaded (and on every beat change).
-    LaunchedEffect(state.activeBeatId, pageLoaded) {
+    LaunchedEffect(state.activeBeatId, pageLoads) {
         val wv = webView ?: return@LaunchedEffect
-        if (!pageLoaded) return@LaunchedEffect
+        if (pageLoads == 0) return@LaunchedEffect
         wv.evaluateJavascript(INJECT_STYLE_JS, null)
         state.activeBeatId?.let { beatId ->
             wv.evaluateJavascript(highlightJs(state.dataAttr, beatId), null)
@@ -272,9 +299,9 @@ private fun EpubWebView(state: ReaderUiState, bookId: String?) {
     // Search: once the target page is loaded, highlight every match and scroll to the selected
     // occurrence. Clearing the target (new search, search closed) strips the highlight spans. A
     // page that isn't the target needs no cleanup — navigating gave it a fresh document.
-    LaunchedEffect(state.searchTarget, pageLoaded) {
+    LaunchedEffect(state.searchTarget, pageLoads) {
         val wv = webView ?: return@LaunchedEffect
-        if (!pageLoaded) return@LaunchedEffect
+        if (pageLoads == 0) return@LaunchedEffect
         val target = state.searchTarget
         when {
             target == null -> wv.evaluateJavascript(CLEAR_SEARCH_JS, null)
@@ -288,12 +315,41 @@ private fun EpubWebView(state: ReaderUiState, bookId: String?) {
         webView?.settings?.textZoom = state.textZoom
     }
 
+    // Reading position — restore. Once the page is loaded, scroll to the saved offset; done twice
+    // because a page with images grows after `onPageFinished`, and a single early scroll would
+    // land short. Then hand back so it's applied exactly once.
+    LaunchedEffect(state.restoreScrollFraction, pageLoads, state.currentIndex) {
+        val wv = webView ?: return@LaunchedEffect
+        val fraction = state.restoreScrollFraction ?: return@LaunchedEffect
+        if (!pageReady) return@LaunchedEffect
+        delay(RESTORE_FIRST_DELAY_MS)
+        wv.evaluateJavascript(restoreScrollJs(fraction), null)
+        delay(RESTORE_SECOND_DELAY_MS)
+        wv.evaluateJavascript(restoreScrollJs(fraction), null)
+        onRestored()
+    }
+
+    // Reading position — save. While a page is up, sample its scroll offset and report it; the
+    // ViewModel only writes when it actually moved. Paused until a pending restore has landed,
+    // so the fresh page's offset of 0 can't overwrite the position being restored.
+    LaunchedEffect(webView, pageLoads, state.currentIndex, state.restoreScrollFraction) {
+        val wv = webView ?: return@LaunchedEffect
+        if (!pageReady || state.restoreScrollFraction != null) return@LaunchedEffect
+        val index = state.currentIndex
+        while (true) {
+            delay(SCROLL_SAMPLE_MS)
+            wv.evaluateJavascript(SCROLL_FRACTION_JS) { result ->
+                result?.toFloatOrNull()?.let { onScroll(index, it) }
+            }
+        }
+    }
+
     // Reader theme: paint the WebView background immediately and (re)inject the dark stylesheet on
     // every page load so navigating pages keeps the theme.
-    LaunchedEffect(state.isDark, pageLoaded, webView) {
+    LaunchedEffect(state.isDark, pageLoads, webView) {
         val wv = webView ?: return@LaunchedEffect
         wv.setBackgroundColor(if (state.isDark) READER_DARK_BG else android.graphics.Color.WHITE)
-        if (pageLoaded) wv.evaluateJavascript(themeJs(state.isDark), null)
+        if (pageLoads > 0) wv.evaluateJavascript(themeJs(state.isDark), null)
     }
 }
 
@@ -366,6 +422,27 @@ private fun themeJs(dark: Boolean): String {
 })();
 """
 }
+
+private const val RESTORE_FIRST_DELAY_MS = 120L
+private const val RESTORE_SECOND_DELAY_MS = 400L
+private const val SCROLL_SAMPLE_MS = 1_500L
+
+/** Fraction (0..1) of the page's scrollable height the viewport is currently at; 0 when it all fits. */
+private const val SCROLL_FRACTION_JS = """
+(function(){
+  var d=document.documentElement, b=document.body;
+  var h=Math.max(d.scrollHeight, b?b.scrollHeight:0) - window.innerHeight;
+  return h>0 ? Math.min(1, Math.max(0, window.scrollY/h)) : 0;
+})();
+"""
+
+private fun restoreScrollJs(fraction: Float): String = """
+(function(f){
+  var d=document.documentElement, b=document.body;
+  var h=Math.max(d.scrollHeight, b?b.scrollHeight:0) - window.innerHeight;
+  if (h>0) window.scrollTo(0, f*h);
+})(${fraction.coerceIn(0f, 1f)});
+"""
 
 private const val INJECT_STYLE_JS = """
 (function(){

@@ -9,6 +9,9 @@ import com.vibetuned.ln_reader.data.prefs.ViewerPreferences
 import com.vibetuned.ln_reader.data.repo.BookRepository
 import com.vibetuned.ln_reader.data.repo.CollectionRepository
 import com.vibetuned.ln_reader.data.repo.PositionRepository
+import com.vibetuned.ln_reader.data.repo.ReadLogRepository
+import com.vibetuned.ln_reader.data.repo.ReadingPositionRepository
+import com.vibetuned.ln_reader.debug.DebugLaunchRequest
 import com.vibetuned.ln_reader.m4b.M4bParser
 import com.vibetuned.ln_reader.player.CollectionAdvanceController
 import com.vibetuned.ln_reader.player.PlayerHolder
@@ -25,6 +28,18 @@ class AppContainer(context: Context) {
      * within the same process. Read/written only from the main thread.
      */
     var lastBookRestoreHandled = false
+
+    /**
+     * Debug-build launch hooks parsed from the starting Intent (see `debug/DebugLaunch.kt`), waiting
+     * for the UI to be up so they can import books and navigate. Consumed once by `MainActivity`.
+     */
+    var pendingDebugLaunch: DebugLaunchRequest? = null
+
+    /** Debug hook: a search to run as soon as the reader has a book loaded (`--es readerSearch q`). */
+    var pendingReaderSearch: String? = null
+
+    /** Debug hook: a 1-based page to turn to as soon as the reader has a book (`--ei readerPage n`). */
+    var pendingReaderPage: Int? = null
 
     val database: LnReaderDatabase by lazy {
         LnReaderDatabase.build(appContext)
@@ -55,6 +70,7 @@ class AppContainer(context: Context) {
             bookDao = database.bookDao(),
             chapterDao = database.chapterDao(),
             imageDao = database.embeddedImageDao(),
+            readingPositionDao = database.readingPositionDao(),
             parser = parser,
             downloadPreferences = downloadPreferences
         )
@@ -66,6 +82,14 @@ class AppContainer(context: Context) {
 
     val collectionRepository: CollectionRepository by lazy {
         CollectionRepository(database.collectionDao(), database.bookDao())
+    }
+
+    val readingPositionRepository: ReadingPositionRepository by lazy {
+        ReadingPositionRepository(database.readingPositionDao())
+    }
+
+    val readLogRepository: ReadLogRepository by lazy {
+        ReadLogRepository(database.readLogDao())
     }
 
     val playerHolder: PlayerHolder by lazy {

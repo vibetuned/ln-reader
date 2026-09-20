@@ -99,49 +99,62 @@ fun BookDetailSheet(
             }
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                Stat(label = "Duration", value = formatDuration(liveBook.durationMs))
-                Stat(label = "Chapters", value = (detail?.chapters?.size ?: 0).toString())
-                Stat(label = "Images", value = (detail?.images?.size ?: 0).toString())
+                if (liveBook.hasAudio) {
+                    Stat(label = "Duration", value = formatDuration(liveBook.durationMs))
+                    Stat(label = "Chapters", value = (detail?.chapters?.size ?: 0).toString())
+                    Stat(label = "Images", value = (detail?.images?.size ?: 0).toString())
+                } else {
+                    Stat(label = "Format", value = "EPUB")
+                }
             }
 
-            Spacer(Modifier.height(20.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "Companions",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.height(8.dp))
-            CompanionRow(
-                icon = Icons.AutoMirrored.Outlined.MenuBook,
-                label = "EPUB",
-                attached = liveBook.hasEpub,
-                onAdd = { pickEpub.launch(arrayOf("application/epub+zip", "application/octet-stream")) },
-                onRemove = { scope.launch { container.bookRepository.detachEpub(book.id) } }
-            )
-            Spacer(Modifier.height(8.dp))
-            CompanionRow(
-                icon = Icons.Outlined.Sync,
-                label = "Sync manifest",
-                attached = liveBook.hasSync,
-                onAdd = {
-                    pickSync.launch(
-                        arrayOf("application/json", "text/plain", "application/octet-stream")
-                    )
-                },
-                onRemove = { scope.launch { container.bookRepository.detachSync(book.id) } }
-            )
+            // Companions belong to an audiobook: for an EPUB-only book the EPUB *is* the book, and
+            // a sync manifest has no narration to sync to.
+            if (liveBook.hasAudio) {
+                Spacer(Modifier.height(20.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Companions",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(8.dp))
+                CompanionRow(
+                    icon = Icons.AutoMirrored.Outlined.MenuBook,
+                    label = "EPUB",
+                    attached = liveBook.hasEpub,
+                    onAdd = { pickEpub.launch(arrayOf("application/epub+zip", "application/octet-stream")) },
+                    onRemove = { scope.launch { container.bookRepository.detachEpub(book.id) } }
+                )
+                Spacer(Modifier.height(8.dp))
+                CompanionRow(
+                    icon = Icons.Outlined.Sync,
+                    label = "Sync manifest",
+                    attached = liveBook.hasSync,
+                    onAdd = {
+                        pickSync.launch(
+                            arrayOf("application/json", "text/plain", "application/octet-stream")
+                        )
+                    },
+                    onRemove = { scope.launch { container.bookRepository.detachSync(book.id) } }
+                )
+            }
 
             Spacer(Modifier.height(24.dp))
+            // Primary action: play an audiobook, read an EPUB-only book.
             Button(
-                onClick = onPlay,
+                onClick = if (liveBook.hasAudio) onPlay else onRead,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Open")
+                if (!liveBook.hasAudio) {
+                    Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(if (liveBook.hasAudio) "Open" else "Read")
             }
             Spacer(Modifier.height(8.dp))
-            if (liveBook.hasEpub) {
+            if (liveBook.hasAudio && liveBook.hasEpub) {
                 OutlinedButton(
                     onClick = onRead,
                     modifier = Modifier.fillMaxWidth()
@@ -152,17 +165,19 @@ fun BookDetailSheet(
                 }
                 Spacer(Modifier.height(8.dp))
             }
-            val hasImages = (detail?.images?.size ?: 0) > 0
-            OutlinedButton(
-                onClick = onViewImages,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = hasImages
-            ) {
-                Icon(Icons.Outlined.Image, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("View images", style = MaterialTheme.typography.labelLarge)
+            if (liveBook.hasAudio) {
+                val hasImages = (detail?.images?.size ?: 0) > 0
+                OutlinedButton(
+                    onClick = onViewImages,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = hasImages
+                ) {
+                    Icon(Icons.Outlined.Image, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("View images", style = MaterialTheme.typography.labelLarge)
+                }
+                Spacer(Modifier.height(8.dp))
             }
-            Spacer(Modifier.height(8.dp))
             if (liveBook.collectionId == null) {
                 OutlinedButton(
                     onClick = { showCollectionPicker = true },

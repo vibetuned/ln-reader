@@ -107,6 +107,14 @@ interface PositionDao {
     )
     suspend fun mostRecentExistingBookId(): String?
 
+    /** The whole most-recent row (with its timestamp), so it can be weighed against reading positions. */
+    @Query(
+        "SELECT p.* FROM positions p " +
+            "INNER JOIN books b ON b.id = p.bookId " +
+            "ORDER BY p.updatedAt DESC LIMIT 1"
+    )
+    suspend fun mostRecentExisting(): PositionEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(position: PositionEntity)
 
@@ -151,4 +159,50 @@ interface CollectionDao {
 
     @Query("DELETE FROM collections WHERE id = :id")
     suspend fun delete(id: String)
+}
+
+@Dao
+interface ReadingPositionDao {
+    @Query("SELECT * FROM reading_positions WHERE bookId = :bookId")
+    fun observe(bookId: String): Flow<ReadingPositionEntity?>
+
+    /** Every saved reading position — feeds the library progress bars of EPUB-only books. */
+    @Query("SELECT * FROM reading_positions")
+    fun observeAll(): Flow<List<ReadingPositionEntity>>
+
+    @Query("SELECT * FROM reading_positions WHERE bookId = :bookId")
+    suspend fun get(bookId: String): ReadingPositionEntity?
+
+    /** Most recently saved reading position whose book still exists (resume-on-launch). */
+    @Query(
+        "SELECT r.* FROM reading_positions r " +
+            "INNER JOIN books b ON b.id = r.bookId " +
+            "ORDER BY r.updatedAt DESC LIMIT 1"
+    )
+    suspend fun mostRecentExisting(): ReadingPositionEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(position: ReadingPositionEntity)
+
+    @Query("DELETE FROM reading_positions WHERE bookId = :bookId")
+    suspend fun delete(bookId: String)
+}
+
+@Dao
+interface ReadLogDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entry: ReadLogEntity)
+
+    /** Heartbeat / close: push the session's end forward. */
+    @Query("UPDATE read_log SET endedAt = :endedAt, endPosition = :endPosition WHERE id = :id")
+    suspend fun updateEnd(id: String, endedAt: Long, endPosition: Long)
+
+    @Query("SELECT * FROM read_log ORDER BY startedAt ASC")
+    fun observeAll(): Flow<List<ReadLogEntity>>
+
+    @Query("SELECT * FROM read_log WHERE startedAt >= :fromMs AND startedAt < :toMs ORDER BY startedAt ASC")
+    suspend fun between(fromMs: Long, toMs: Long): List<ReadLogEntity>
+
+    @Query("SELECT * FROM read_log WHERE bookId = :bookId ORDER BY startedAt ASC")
+    suspend fun forBook(bookId: String): List<ReadLogEntity>
 }

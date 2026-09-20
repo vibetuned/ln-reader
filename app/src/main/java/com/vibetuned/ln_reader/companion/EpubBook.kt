@@ -1,5 +1,6 @@
 package com.vibetuned.ln_reader.companion
 
+import android.net.Uri
 import android.util.Xml
 import org.xmlpull.v1.XmlPullParser
 import java.io.File
@@ -13,7 +14,13 @@ data class EpubSpineItem(
 
 data class EpubBook(
     val rootDir: File,
-    val spine: List<EpubSpineItem>
+    val spine: List<EpubSpineItem>,
+    /** `dc:title` from the OPF, if present. */
+    val title: String? = null,
+    /** First `dc:creator` from the OPF, if present. */
+    val author: String? = null,
+    /** EPUB-root-relative path of the cover image, resolved from the OPF, if declared. */
+    val coverPath: String? = null
 )
 
 /**
@@ -35,14 +42,26 @@ object EpubReader {
         val opfPath = findOpfPath(rootDir)
         val opfFile = File(rootDir, opfPath)
         val opfDir = opfPath.substringBeforeLast('/', "")
-        val (manifest, spineIdrefs) = parseOpf(opfFile)
-        val items = spineIdrefs.mapNotNull { idref ->
-            val href = manifest[idref] ?: return@mapNotNull null
-            val cleanHref = href.substringBefore('#')
-            val rootRel = if (opfDir.isEmpty()) cleanHref else "$opfDir/$cleanHref"
+        val opfData = parseOpf(opfFile)
+        fun rootRelative(href: String): String {
+            val clean = Uri.decode(href.substringBefore('#'))
+            return if (opfDir.isEmpty()) clean else "$opfDir/$clean"
+        }
+        val items = opfData.spineIdrefs.mapNotNull { idref ->
+            val href = opfData.manifest[idref] ?: return@mapNotNull null
+            val rootRel = rootRelative(href)
             EpubSpineItem(rootRelativePath = rootRel, url = BASE_URL + rootRel)
         }
-        return EpubBook(rootDir, items)
+        // EPUB 3 marks the cover in the manifest (`properties="cover-image"`); EPUB 2 points at it
+        // from `<meta name="cover" content="<id>"/>`. Either way it resolves through the manifest.
+        val coverHref = (opfData.coverImageId ?: opfData.coverMetaId)?.let { opfData.manifest[it] }
+        return EpubBook(
+            rootDir = rootDir,
+            spine = items,
+            title = opfData.title?.trim()?.takeIf { it.isNotEmpty() },
+            author = opfData.creator?.trim()?.takeIf { it.isNotEmpty() },
+            coverPath = coverHref?.let(::rootRelative)
+        )
     }
 
     private fun extract(epubFile: File, targetDir: File) {
@@ -83,29 +102,55 @@ object EpubReader {
         error("No rootfile entry in container.xml")
     }
 
-    private fun parseOpf(opf: File): Pair<Map<String, String>, List<String>> {
+    /** What we pull out of the OPF: the manifest + spine, plus the Dublin Core bits a library tile needs. */
+    private class OpfData {
         val manifest = HashMap<String, String>()
-        val spine = ArrayList<String>()
+        val spineIdrefs = ArrayList<String>()
+        var title: String? = null
+        var creator: String? = null
+        var coverImageId: String? = null
+        var coverMetaId: String? = null
+    }
+
+    private fun parseOpf(opf: File): OpfData {
+        val data = OpfData()
         val parser = Xml.newPullParser()
         opf.inputStream().use { input ->
             parser.setInput(input, null)
             var event = parser.eventType
             while (event != XmlPullParser.END_DOCUMENT) {
                 if (event == XmlPullParser.START_TAG) {
-                    when (parser.name) {
+                    // Namespaces aren't processed, so Dublin Core elements arrive prefixed
+                    // ("dc:title"); match on the local part so either spelling works.
+                    when (parser.name.substringAfter(':')) {
                         "item" -> {
                             val id = parser.getAttributeValue(null, "id")
                             val href = parser.getAttributeValue(null, "href")
-                            if (id != null && href != null) manifest[id] = href
+                            if (id != null && href != null) data.manifest[id] = href
+                            val properties = parser.getAttributeValue(null, "properties") ?: ""
+                            if (id != null && properties.split(' ').contains("cover-image")) {
+                                data.coverImageId = data.coverImageId ?: id
+                            }
                         }
-                        "itemref" -> {
-                            parser.getAttributeValue(null, "idref")?.let { spine.add(it) }
+                        "itemref" -> parser.getAttributeValue(null, "idref")?.let { data.spineIdrefs.add(it) }
+                        "meta" -> if (parser.getAttributeValue(null, "name") == "cover") {
+                            data.coverMetaId = data.coverMetaId ?: parser.getAttributeValue(null, "content")
+                        }
+                        "title" -> if (data.title == null) {
+                            data.title = parser.nextText()
+                            event = parser.eventType
+                            continue
+                        }
+                        "creator" -> if (data.creator == null) {
+                            data.creator = parser.nextText()
+                            event = parser.eventType
+                            continue
                         }
                     }
                 }
                 event = parser.next()
             }
         }
-        return manifest to spine
+        return data
     }
 }

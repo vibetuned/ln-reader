@@ -2,6 +2,7 @@ package com.vibetuned.ln_reader.ui.library
 
 import com.vibetuned.ln_reader.data.model.Book
 import com.vibetuned.ln_reader.data.model.Collection
+import com.vibetuned.ln_reader.data.model.ReadingPosition
 import com.vibetuned.ln_reader.data.prefs.SortDirection
 import com.vibetuned.ln_reader.data.prefs.SortField
 import com.vibetuned.ln_reader.data.repo.BookRepository
@@ -9,7 +10,12 @@ import com.vibetuned.ln_reader.data.repo.BookRepository
 /** A tile in the library grid: either a collection folder or a book. */
 sealed interface LibraryEntry {
     data class CollectionEntry(val collection: Collection) : LibraryEntry
-    data class BookEntry(val book: Book, val progress: Float) : LibraryEntry
+    /** [reading] is where the reader left off; it supplies the "6 / 45" page label for EPUB-only books. */
+    data class BookEntry(
+        val book: Book,
+        val progress: Float,
+        val reading: ReadingPosition? = null
+    ) : LibraryEntry
 }
 
 data class LibraryUiState(

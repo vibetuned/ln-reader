@@ -12,7 +12,9 @@ import com.vibetuned.ln_reader.data.prefs.SortDirection
 import com.vibetuned.ln_reader.data.prefs.SortField
 import com.vibetuned.ln_reader.data.repo.BookRepository
 import com.vibetuned.ln_reader.data.repo.CollectionRepository
+import com.vibetuned.ln_reader.data.model.ReadingPosition
 import com.vibetuned.ln_reader.data.repo.PositionRepository
+import com.vibetuned.ln_reader.data.repo.ReadingPositionRepository
 import com.vibetuned.ln_reader.data.repo.orderCollectionBooks
 import com.vibetuned.ln_reader.data.repo.sortBooksByField
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +32,7 @@ class LibraryViewModel(
     private val collectionId: String?,
     private val bookRepository: BookRepository,
     private val positionRepository: PositionRepository,
+    private val readingPositionRepository: ReadingPositionRepository,
     private val collectionRepository: CollectionRepository,
     private val libraryPreferences: LibraryPreferences
 ) : ViewModel() {
@@ -50,12 +53,13 @@ class LibraryViewModel(
                     collectionRepository.collections(),
                     bookRepository.topLevelBooks(),
                     positionRepository.observeAllPositions(),
+                    readingPositionRepository.observeAll(),
                     libraryPreferences.sort
-                ) { collections, books, positions, sort ->
+                ) { collections, books, positions, reading, sort ->
                     buildList<LibraryEntry> {
                         collections.forEach { add(LibraryEntry.CollectionEntry(it)) }
                         sortBooksByField(books, sort).forEach {
-                            add(LibraryEntry.BookEntry(it, progressFraction(positions[it.id], it.durationMs)))
+                            add(LibraryEntry.BookEntry(it, progressOf(it, positions, reading), reading[it.id]))
                         }
                     }
                 }.collect { entries ->
@@ -67,12 +71,13 @@ class LibraryViewModel(
                 combine(
                     bookRepository.booksInCollection(collectionId),
                     positionRepository.observeAllPositions(),
+                    readingPositionRepository.observeAll(),
                     libraryPreferences.sort,
                     libraryPreferences.collectionSort(collectionId)
-                ) { books, positions, sort, collectionSort ->
+                ) { books, positions, reading, sort, collectionSort ->
                     val ordered = orderCollectionBooks(books, sort, collectionSort)
                     val entries = ordered.map {
-                        LibraryEntry.BookEntry(it, progressFraction(positions[it.id], it.durationMs))
+                        LibraryEntry.BookEntry(it, progressOf(it, positions, reading), reading[it.id])
                     }
                     entries to collectionSort.manual
                 }.collect { (entries, manual) ->
@@ -86,6 +91,15 @@ class LibraryViewModel(
             }
         }
     }
+
+    /** Progress bar value: playback through the audio, or — for an EPUB-only book — pages read. */
+    private fun progressOf(
+        book: Book,
+        positions: Map<String, Long>,
+        reading: Map<String, ReadingPosition>
+    ): Float =
+        if (book.hasAudio) progressFraction(positions[book.id], book.durationMs)
+        else reading[book.id]?.fraction ?: 0f
 
     private fun progressFraction(positionMs: Long?, durationMs: Long): Float {
         if (positionMs == null || durationMs <= 0L) return 0f
@@ -161,6 +175,7 @@ class LibraryViewModel(
             collectionId: String?,
             bookRepository: BookRepository,
             positionRepository: PositionRepository,
+            readingPositionRepository: ReadingPositionRepository,
             collectionRepository: CollectionRepository,
             libraryPreferences: LibraryPreferences
         ) = viewModelFactory {
@@ -169,6 +184,7 @@ class LibraryViewModel(
                     collectionId,
                     bookRepository,
                     positionRepository,
+                    readingPositionRepository,
                     collectionRepository,
                     libraryPreferences
                 )

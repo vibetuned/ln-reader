@@ -17,6 +17,12 @@ data class SearchTarget(
 )
 
 data class ReaderUiState(
+    /**
+     * Scroll offset (0..1) to apply to the current page once it has loaded — the saved reading
+     * position being restored. One-shot: the screen clears it after applying, so paging on
+     * doesn't re-scroll.
+     */
+    val restoreScrollFraction: Float? = null,
     val isLoading: Boolean = true,
     val error: String? = null,
     val bookTitle: String = "",

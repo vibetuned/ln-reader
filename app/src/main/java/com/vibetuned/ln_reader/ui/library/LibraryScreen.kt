@@ -73,13 +73,17 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.vibetuned.ln_reader.data.model.Book
 import com.vibetuned.ln_reader.data.model.Collection
+import com.vibetuned.ln_reader.data.model.ReadingPosition
 import com.vibetuned.ln_reader.data.prefs.SortDirection
 import com.vibetuned.ln_reader.data.prefs.SortField
 import com.vibetuned.ln_reader.ui.common.appContainer
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-private val M4B_MIME_TYPES = arrayOf("audio/mp4", "audio/x-m4b", "application/octet-stream")
+/** What the picker offers: .m4b audiobooks and .epub books (the repository tells them apart). */
+private val BOOK_MIME_TYPES = arrayOf(
+    "audio/mp4", "audio/x-m4b", "application/epub+zip", "application/octet-stream"
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,6 +103,7 @@ fun LibraryScreen(
             collectionId = collectionId,
             bookRepository = container.bookRepository,
             positionRepository = container.positionRepository,
+            readingPositionRepository = container.readingPositionRepository,
             collectionRepository = container.collectionRepository,
             libraryPreferences = container.libraryPreferences
         )
@@ -212,13 +217,13 @@ fun LibraryScreen(
             Box {
                 FloatingActionButton(
                     onClick = {
-                        if (isCollectionView) pickLauncher.launch(M4B_MIME_TYPES)
+                        if (isCollectionView) pickLauncher.launch(BOOK_MIME_TYPES)
                         else showAddMenu = true
                     }
                 ) {
                     Icon(
                         Icons.Outlined.Add,
-                        contentDescription = if (isCollectionView) "Import m4b" else "Add"
+                        contentDescription = if (isCollectionView) "Import book" else "Add"
                     )
                 }
                 DropdownMenu(expanded = showAddMenu, onDismissRequest = { showAddMenu = false }) {
@@ -229,7 +234,7 @@ fun LibraryScreen(
                         },
                         onClick = {
                             showAddMenu = false
-                            pickLauncher.launch(M4B_MIME_TYPES)
+                            pickLauncher.launch(BOOK_MIME_TYPES)
                         }
                     )
                     DropdownMenuItem(
@@ -272,7 +277,8 @@ fun LibraryScreen(
             onDismiss = { selectedBook = null },
             onPlay = {
                 selectedBook = null
-                onPlayBook(book.id)
+                // Nothing to play in an EPUB-only book: "open" means the reader.
+                if (book.hasAudio) onPlayBook(book.id) else onReadBook(book.id)
             },
             onViewImages = {
                 selectedBook = null
@@ -407,8 +413,8 @@ private fun EmptyLibrary(inCollection: Boolean) {
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            if (inCollection) "Tap + to add an .m4b file to this collection."
-            else "Tap + to import an .m4b file, or create a collection.",
+            if (inCollection) "Tap + to add an .m4b or .epub file to this collection."
+            else "Tap + to import an .m4b or .epub file, or create a collection.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -445,6 +451,7 @@ private fun LibraryGrid(
                 is LibraryEntry.BookEntry -> BookCard(
                     book = entry.book,
                     progress = entry.progress,
+                    reading = entry.reading,
                     onClick = { onBookClick(entry.book) }
                 )
             }
@@ -548,7 +555,12 @@ private fun CollectionCoverArt(coverPaths: List<String>, modifier: Modifier = Mo
 }
 
 @Composable
-private fun BookCard(book: Book, progress: Float, onClick: () -> Unit) {
+private fun BookCard(
+    book: Book,
+    progress: Float,
+    reading: ReadingPosition?,
+    onClick: () -> Unit
+) {
     ElevatedCard(onClick = onClick) {
         Column {
             Box(
@@ -595,8 +607,10 @@ private fun BookCard(book: Book, progress: Float, onClick: () -> Unit) {
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+                // How long, or how far: an audiobook is measured in time, an EPUB-only book in
+                // pages, so the same line reads "9h 26m" or "6 / 45".
                 Text(
-                    formatDuration(book.durationMs),
+                    bookExtentLabel(book, reading),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -687,6 +701,21 @@ private fun sortFieldLabel(field: SortField): String = when (field) {
 private fun defaultDirection(field: SortField): SortDirection = when (field) {
     SortField.DateAdded -> SortDirection.Desc
     SortField.Name -> SortDirection.Asc
+}
+
+/**
+ * The tile's third line: an audiobook's running time, or an EPUB-only book's place in its pages.
+ *
+ * The page total comes from the book row (recorded at import). Rows imported before that column
+ * existed fall back to the count the reader wrote alongside the reading position; with neither,
+ * the format is all we can honestly say.
+ */
+private fun bookExtentLabel(book: Book, reading: ReadingPosition?): String {
+    if (book.hasAudio) return formatDuration(book.durationMs)
+    val total = book.spineCount.takeIf { it > 0 } ?: reading?.spineCount ?: 0
+    if (total <= 0) return "EPUB"
+    val page = (reading?.spineIndex ?: 0) + 1
+    return "${page.coerceIn(1, total)} / $total"
 }
 
 internal fun formatDuration(ms: Long): String {

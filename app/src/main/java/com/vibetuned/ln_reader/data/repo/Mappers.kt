@@ -4,10 +4,18 @@ import com.vibetuned.ln_reader.data.db.BookEntity
 import com.vibetuned.ln_reader.data.db.ChapterEntity
 import com.vibetuned.ln_reader.data.db.CollectionWithCount
 import com.vibetuned.ln_reader.data.db.EmbeddedImageEntity
+import com.vibetuned.ln_reader.data.db.MEDIA_KIND_EPUB
+import com.vibetuned.ln_reader.data.db.READ_LOG_KIND_READ
+import com.vibetuned.ln_reader.data.db.ReadLogEntity
+import com.vibetuned.ln_reader.data.db.ReadingPositionEntity
 import com.vibetuned.ln_reader.data.model.Book
 import com.vibetuned.ln_reader.data.model.Chapter
 import com.vibetuned.ln_reader.data.model.Collection
 import com.vibetuned.ln_reader.data.model.EmbeddedImage
+import com.vibetuned.ln_reader.data.model.MediaKind
+import com.vibetuned.ln_reader.data.model.ReadLogEntry
+import com.vibetuned.ln_reader.data.model.ReadLogKind
+import com.vibetuned.ln_reader.data.model.ReadingPosition
 
 internal fun BookEntity.toDomain() = Book(
     id = id,
@@ -22,7 +30,28 @@ internal fun BookEntity.toDomain() = Book(
     syncKey = syncKey,
     epubPath = epubPath,
     syncPath = syncPath,
-    collectionId = collectionId
+    collectionId = collectionId,
+    mediaKind = if (mediaKind == MEDIA_KIND_EPUB) MediaKind.Epub else MediaKind.Audio,
+    spineCount = spineCount
+)
+
+internal fun ReadingPositionEntity.toDomain() = ReadingPosition(
+    bookId = bookId,
+    spineIndex = spineIndex,
+    scrollFraction = scrollFraction,
+    spineCount = spineCount,
+    updatedAt = updatedAt
+)
+
+internal fun ReadLogEntity.toDomain() = ReadLogEntry(
+    id = id,
+    bookId = bookId,
+    bookTitle = bookTitle,
+    kind = if (kind == READ_LOG_KIND_READ) ReadLogKind.Read else ReadLogKind.Listen,
+    startedAt = startedAt,
+    endedAt = endedAt,
+    startPosition = startPosition,
+    endPosition = endPosition
 )
 
 internal fun CollectionWithCount.toDomain() = Collection(

@@ -27,6 +27,7 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.vibetuned.ln_reader.debug.DebugLaunch
 import com.vibetuned.ln_reader.ui.common.appContainer
 import com.vibetuned.ln_reader.ui.navigation.LnReaderNavGraph
 import com.vibetuned.ln_reader.ui.navigation.PlayerRoute
@@ -48,6 +49,9 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         ensureNotificationPermission()
         enableEdgeToEdge()
+        // Debug-build launch hooks (`adb shell am start … --es openTitle …`); null in release and
+        // on a plain launch. Picked up once the UI is up, in LnReaderApp.
+        (application as LnReaderApplication).container.pendingDebugLaunch = DebugLaunch.parse(intent)
         setContent {
             LnReaderTheme {
                 LnReaderApp()
@@ -67,6 +71,33 @@ class MainActivity : FragmentActivity() {
     }
 }
 
+/**
+ * Reopen whatever the user was last in: the most recent of the last playback save and the last
+ * reading save decides the book. An audiobook comes back in the player (paused, as before); a book
+ * without audio can only come back in the reader, at its saved page — its reading position is the
+ * only record of where the user was.
+ */
+private suspend fun restoreLastBook(
+    container: com.vibetuned.ln_reader.di.AppContainer,
+    navController: androidx.navigation.NavHostController
+) {
+    val latest = listOfNotNull(
+        container.positionRepository.lastPlayed(),
+        container.readingPositionRepository.lastRead()
+    ).maxByOrNull { it.updatedAt } ?: return
+    val book = container.bookRepository.getDetail(latest.bookId)?.book ?: return
+    val current = navController.currentDestination?.route
+    if (book.hasAudio) {
+        // If a process-death restore already put the player back on top via the saved back stack,
+        // it reopens the book on its own — don't push a duplicate entry.
+        if (current == PlayerRoute.PATTERN) return
+        navController.navigate(PlayerRoute.forBook(book.id))
+    } else {
+        if (current == ReaderRoute.PATTERN) return
+        navController.navigate(ReaderRoute.forBook(book.id))
+    }
+}
+
 @Composable
 private fun LnReaderApp() {
     val navController = rememberNavController()
@@ -81,13 +112,17 @@ private fun LnReaderApp() {
     // yank the user back to the player).
     val container = appContainer()
     LaunchedEffect(Unit) {
-        if (container.lastBookRestoreHandled) return@LaunchedEffect
-        container.lastBookRestoreHandled = true
-        val bookId = container.positionRepository.lastPlayedBookId() ?: return@LaunchedEffect
-        // If a process-death restore already put the player back on top via the saved back stack,
-        // it reopens the book on its own — don't push a duplicate entry.
-        if (navController.currentDestination?.route == PlayerRoute.PATTERN) return@LaunchedEffect
-        navController.navigate(PlayerRoute.forBook(bookId))
+        // Debug hooks run in two halves around the restore: imports first (so a title asked for in
+        // the same launch exists), navigation after (so it wins over the restored book).
+        val debug = container.pendingDebugLaunch.also { container.pendingDebugLaunch = null }
+        debug?.let { DebugLaunch.runImports(it, container) }
+
+        if (!container.lastBookRestoreHandled) {
+            container.lastBookRestoreHandled = true
+            restoreLastBook(container, navController)
+        }
+
+        debug?.let { DebugLaunch.runNavigation(it, container, navController) }
     }
 
     Scaffold(
@@ -107,6 +142,7 @@ private fun LnReaderApp() {
                             launchSingleTop = true
                         }
                     }
+                    val inReader = currentDestination?.route == ReaderRoute.PATTERN
                     MiniPlayerBar(
                         onExpand = { bookId ->
                             navController.navigate(PlayerRoute.forBook(bookId)) {
@@ -114,8 +150,9 @@ private fun LnReaderApp() {
                             }
                         },
                         // Hide the Read button when we're already in the reader.
-                        onOpenReader = if (currentDestination?.route == ReaderRoute.PATTERN) null
-                        else openReader
+                        onOpenReader = if (inReader) null else openReader,
+                        // Lets the bar hide itself while an EPUB-only book is being read.
+                        readingBookId = if (inReader) currentBackStack?.arguments?.getString("bookId") else null
                     )
                 }
                 NavigationBar {

@@ -60,11 +60,17 @@ data class NowPlaying(
  * buttons) opens the full player for the current book via [onExpand]. When [onOpenReader] is
  * non-null and the current book has an attached EPUB, a Read button opens the reader; callers pass
  * null while already in the reader to hide it.
+ *
+ * [readingBookId] is the book the reader is showing, when the reader is what's on screen. A book
+ * with no audio of its own has no narration to control, so the bar would only be offering
+ * transport for some unrelated audiobook while you read — it stays hidden there unless that other
+ * book is actually playing, in which case you still want the controls within reach.
  */
 @Composable
 fun MiniPlayerBar(
     onExpand: (bookId: String) -> Unit,
     onOpenReader: ((bookId: String) -> Unit)? = null,
+    readingBookId: String? = null,
     modifier: Modifier = Modifier
 ) {
     val container = appContainer()
@@ -72,6 +78,9 @@ fun MiniPlayerBar(
     val books by container.bookRepository.books().collectAsStateWithLifecycle(initialValue = emptyList())
     val nowPlaying = rememberNowPlaying(controller) ?: return
     val c = controller ?: return
+    val readingEpubOnly = readingBookId != null &&
+        books.any { it.id == readingBookId && !it.hasAudio }
+    if (readingEpubOnly && !nowPlaying.isPlaying) return
     val bookHasEpub = onOpenReader != null && books.any { it.id == nowPlaying.bookId && it.hasEpub }
     // Chapters aren't in the controller's metadata; load them once per book for the chapter bar.
     val chapters by produceState(initialValue = emptyList<Chapter>(), nowPlaying.bookId) {

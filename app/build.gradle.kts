@@ -42,6 +42,8 @@ android {
 
     buildFeatures {
         compose = true
+        // BuildConfig.DEBUG gates the launch hooks in debug/DebugLaunch.kt out of release builds.
+        buildConfig = true
     }
 
     packaging {

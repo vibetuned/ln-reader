@@ -12,9 +12,12 @@ import com.vibetuned.ln_reader.data.db.BookDao
 import com.vibetuned.ln_reader.data.db.BookEntity
 import com.vibetuned.ln_reader.data.db.ChapterDao
 import com.vibetuned.ln_reader.data.db.ChapterEntity
+import com.vibetuned.ln_reader.companion.EpubReader
 import com.vibetuned.ln_reader.data.db.EmbeddedImageDao
 import com.vibetuned.ln_reader.data.db.EmbeddedImageEntity
 import com.vibetuned.ln_reader.data.db.LnReaderDatabase
+import com.vibetuned.ln_reader.data.db.MEDIA_KIND_EPUB
+import com.vibetuned.ln_reader.data.db.ReadingPositionDao
 import com.vibetuned.ln_reader.data.model.Book
 import com.vibetuned.ln_reader.data.model.BookDetail
 import com.vibetuned.ln_reader.data.prefs.DownloadPreferences
@@ -37,6 +40,7 @@ class BookRepository(
     private val bookDao: BookDao,
     private val chapterDao: ChapterDao,
     private val imageDao: EmbeddedImageDao,
+    private val readingPositionDao: ReadingPositionDao,
     private val parser: M4bParser,
     private val downloadPreferences: DownloadPreferences
 ) {
@@ -82,10 +86,11 @@ class BookRepository(
         }
 
     /**
-     * Import an .m4b. If [uri] points at a cloud provider (Drive, OneDrive, etc.), the file is
-     * copied locally so playback streams from disk instead of the network. The destination is
-     * whatever [DownloadPreferences] points at, defaulting to the app's internal storage.
-     * Local SAF URIs are referenced in place.
+     * Import a book from a picked file. An .epub becomes an EPUB-only book (see [importEpub]);
+     * anything else is treated as an .m4b audiobook. If a cloud provider (Drive, OneDrive, etc.)
+     * is the source, the audio is copied locally so playback streams from disk instead of the
+     * network — the destination is whatever [DownloadPreferences] points at, defaulting to the
+     * app's internal storage. Local SAF URIs are referenced in place.
      */
     suspend fun import(
         uri: Uri,
@@ -93,18 +98,100 @@ class BookRepository(
         onProgress: (ImportProgress) -> Unit = {}
     ): Result<Book> = withContext(Dispatchers.IO) {
         runCatching {
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION
-                )
-            }
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        }
+        // One metadata query for both name and size: for cloud document providers each lookup
+        // is a network round-trip, so fetching both columns at once (instead of two separate
+        // DocumentFile reads) halves the latency before the download can begin.
+        val sourceMeta = queryUriMeta(uri)
+        if (isEpub(uri, sourceMeta.name)) importEpub(uri, sourceMeta, collectionId, onProgress)
+        else importAudio(uri, sourceMeta, collectionId, onProgress)
+    }
 
+    private fun isEpub(uri: Uri, fileName: String?): Boolean =
+        fileName?.endsWith(".epub", ignoreCase = true) == true ||
+            runCatching { context.contentResolver.getType(uri) }.getOrNull() == "application/epub+zip"
+
+    /**
+     * A book that is only an EPUB — no audio, so nothing for the player; it lives entirely in the
+     * reader, which keeps its place through `reading_positions`. The file is copied to the same
+     * spot an attached companion would use (`companions/<id>/book.epub`) and extracted where the
+     * reader expects it, so everything downstream of import treats it like an audiobook whose
+     * EPUB companion happens to be the whole book. Title, author and cover come from the OPF.
+     */
+    private suspend fun importEpub(
+        uri: Uri,
+        sourceMeta: UriMeta,
+        collectionId: String?,
+        onProgress: (ImportProgress) -> Unit
+    ): Result<Book> = runCatching {
+        val bookId = UUID.randomUUID().toString()
+        val cleanup = mutableListOf<() -> Unit>()
+        try {
+            onProgress(ImportProgress(ImportProgress.Phase.Downloading, 0, sourceMeta.size.takeIf { it > 0 } ?: -1L))
+            val epubFile = File(companionDir(bookId).also { it.mkdirs() }, "book.epub")
+            cleanup += { companionDir(bookId).deleteRecursively() }
+            copyUriToFile(uri, epubFile)
+
+            onProgress(ImportProgress(ImportProgress.Phase.Parsing))
+            val rootDir = epubExtractionDir(bookId)
+            cleanup += { rootDir.deleteRecursively() }
+            EpubReader.ensureExtracted(epubFile, rootDir)
+            val epub = EpubReader.parse(rootDir)
+            require(epub.spine.isNotEmpty()) { "This EPUB has no readable pages." }
+
+            // Copy the cover out to the usual images dir so coverPath means the same thing it does
+            // for an audiobook (and survives the extraction dir being rebuilt).
+            val coverPath = epub.coverPath
+                ?.let { File(rootDir, it) }
+                ?.takeIf { it.isFile }
+                ?.let { src ->
+                    val dir = bookImageDir(bookId).also { it.mkdirs() }
+                    cleanup += { dir.deleteRecursively() }
+                    val ext = src.extension.lowercase().ifEmpty { "img" }
+                    File(dir, "0.$ext").also { src.copyTo(it, overwrite = true) }.absolutePath
+                }
+
+            val displayTitle = epub.title
+                ?: sourceMeta.name?.removeSuffix(".epub")?.removeSuffix(".EPUB")
+                ?: "Untitled"
+
+            onProgress(ImportProgress(ImportProgress.Phase.Finalizing))
+            val book = BookEntity(
+                id = bookId,
+                uri = "",
+                title = displayTitle,
+                author = epub.author,
+                album = null,
+                durationMs = 0L,
+                coverPath = coverPath,
+                importedAt = System.currentTimeMillis(),
+                fileSize = epubFile.length(),
+                isDownloaded = false,
+                epubPath = epubFile.absolutePath,
+                collectionId = collectionId,
+                mediaKind = MEDIA_KIND_EPUB,
+                spineCount = epub.spine.size
+            )
+            database.withTransaction { bookDao.upsert(book) }
+            cleanup.clear()
+            book.toDomain()
+        } finally {
+            cleanup.forEach { runCatching { it() } }
+        }
+    }
+
+    private suspend fun importAudio(
+        uri: Uri,
+        sourceMeta: UriMeta,
+        collectionId: String?,
+        onProgress: (ImportProgress) -> Unit
+    ): Result<Book> = withContext(Dispatchers.IO) {
+        runCatching {
             val bookId = UUID.randomUUID().toString()
-            // One metadata query for both name and size: for cloud document providers each lookup
-            // is a network round-trip, so fetching both columns at once (instead of two separate
-            // DocumentFile reads) halves the latency before the download can begin.
-            val sourceMeta = queryUriMeta(uri)
             val fileName = sourceMeta.name
             val cleanup = mutableListOf<() -> Unit>()
             try {
@@ -197,9 +284,12 @@ class BookRepository(
         if (downloadDir.exists()) downloadDir.deleteRecursively()
         val companionDir = companionDir(bookId)
         if (companionDir.exists()) companionDir.deleteRecursively()
+        val extractionDir = epubExtractionDir(bookId)
+        if (extractionDir.exists()) extractionDir.deleteRecursively()
         database.withTransaction {
             chapterDao.deleteForBook(bookId)
             imageDao.deleteForBook(bookId)
+            readingPositionDao.delete(bookId)
             bookDao.delete(bookId)
         }
     }
@@ -225,7 +315,7 @@ class BookRepository(
     suspend fun detachEpub(bookId: String) = withContext(Dispatchers.IO) {
         bookDao.byId(bookId)?.epubPath?.let { runCatching { File(it).delete() } }
         // Drop any extracted EPUB working dir too (created by the reader).
-        File(context.filesDir, "epubs/$bookId").let { if (it.exists()) it.deleteRecursively() }
+        epubExtractionDir(bookId).let { if (it.exists()) it.deleteRecursively() }
         bookDao.updateEpubPath(bookId, null)
     }
 
@@ -243,6 +333,10 @@ class BookRepository(
 
     private fun companionDir(bookId: String): File =
         File(context.filesDir, "companions/$bookId")
+
+    /** Where the reader unzips a book's EPUB; must match `ReaderViewModel` / `EpubWebView`. */
+    private fun epubExtractionDir(bookId: String): File =
+        File(context.filesDir, "epubs/$bookId")
 
     // ── downloads ──────────────────────────────────────────────────────────────
 
@@ -371,6 +465,10 @@ class BookRepository(
      * provider doesn't supply a column or the query fails.
      */
     private fun queryUriMeta(uri: Uri): UriMeta = runCatching {
+        if (uri.scheme == "file") {
+            val file = uri.toFile()
+            return UriMeta(name = file.name, size = file.length())
+        }
         val projection = arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)
         context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
             if (!cursor.moveToFirst()) return@use UriMeta(null, 0L)

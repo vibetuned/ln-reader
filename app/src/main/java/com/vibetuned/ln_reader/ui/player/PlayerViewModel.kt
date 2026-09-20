@@ -92,6 +92,15 @@ class PlayerViewModel(
                 _state.update { it.copy(isLoading = false, error = "Book not found") }
                 return@launch
             }
+            if (!detail.book.hasAudio) {
+                // An EPUB-only book has nothing to play; the library routes it to the reader, and
+                // anything else that lands here (a stale route) gets told why instead of a blank
+                // player trying to prepare an empty URI.
+                _state.update {
+                    it.copy(isLoading = false, error = "This book is an EPUB without audio — open it in the reader.")
+                }
+                return@launch
+            }
             val savedPos = positionRepository.get(bookId) ?: 0L
             // Launch safety: a finished book (saved position at its end) restarts from the
             // beginning rather than loading at the end — which would immediately fire STATE_ENDED

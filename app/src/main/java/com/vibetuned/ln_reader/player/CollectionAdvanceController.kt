@@ -76,7 +76,8 @@ class CollectionAdvanceController(
             val books = bookRepository.booksInCollection(collectionId).first()
             val sort = libraryPreferences.sort.first()
             val collectionSort = libraryPreferences.collectionSort(collectionId).first()
-            val ordered = orderCollectionBooks(books, sort, collectionSort)
+            // EPUB-only books can't be played, so they're not neighbours in a listening run.
+            val ordered = orderCollectionBooks(books, sort, collectionSort).filter { it.hasAudio }
             val index = ordered.indexOfFirst { it.id == bookId }
             if (index < 0) return@launch
             val previous = ordered.getOrNull(index - 1)

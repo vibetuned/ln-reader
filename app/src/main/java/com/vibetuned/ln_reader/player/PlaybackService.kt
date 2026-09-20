@@ -10,6 +10,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.CommandButton
+import androidx.media3.common.MediaItem
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import androidx.media3.session.SessionCommand
@@ -18,7 +19,9 @@ import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.vibetuned.ln_reader.LnReaderApplication
 import com.vibetuned.ln_reader.R
+import com.vibetuned.ln_reader.data.model.ReadLogKind
 import com.vibetuned.ln_reader.data.repo.PositionRepository
+import com.vibetuned.ln_reader.data.repo.ReadLogRepository
 import com.vibetuned.ln_reader.di.AppContainer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +29,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 
 // Notification buttons are backed by custom session commands rather than player commands:
@@ -60,6 +65,12 @@ class PlaybackService : MediaSessionService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var positionSaveJob: Job? = null
 
+    /**
+     * The open `read_log` listen session, as a Deferred id: the row is inserted asynchronously, and
+     * a heartbeat or end that lands before the insert returns must still address the right row.
+     */
+    private var listenSession: Deferred<String>? = null
+
     override fun onCreate() {
         super.onCreate()
         val container = (application as LnReaderApplication).container
@@ -80,10 +91,22 @@ class PlaybackService : MediaSessionService() {
 
         val positionSaverListener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (isPlaying) startPositionSaver(container.positionRepository)
-                else {
+                if (isPlaying) {
+                    startPositionSaver(container.positionRepository)
+                    beginListenSession(container.readLogRepository)
+                } else {
                     stopPositionSaver()
                     saveCurrentPosition(container.positionRepository)
+                    endListenSession(container.readLogRepository)
+                }
+            }
+
+            // Switching books mid-playback (continuing a collection) is one session ending and
+            // another starting; `onIsPlayingChanged` alone wouldn't split them.
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                if (listenSession != null) {
+                    endListenSession(container.readLogRepository)
+                    if (activePlayer.isPlaying) beginListenSession(container.readLogRepository)
                 }
             }
         }
@@ -180,6 +203,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         stopPositionSaver()
+        endListenSession((application as LnReaderApplication).container.readLogRepository)
         castPlayer?.setSessionAvailabilityListener(null)
         castMediaServer?.stopIfRunning()
         session?.run {
@@ -194,12 +218,38 @@ class PlaybackService : MediaSessionService() {
 
     private fun startPositionSaver(positionRepository: PositionRepository) {
         stopPositionSaver()
+        val readLog = (application as LnReaderApplication).container.readLogRepository
         positionSaveJob = serviceScope.launch {
             while (true) {
                 delay(POSITION_SAVE_INTERVAL_MS)
                 saveCurrentPosition(positionRepository)
+                heartbeatListenSession(readLog)
             }
         }
+    }
+
+    // ── read_log: listen sessions ─────────────────────────────────────────────
+
+    private fun beginListenSession(readLog: ReadLogRepository) {
+        if (listenSession != null) return
+        val item = activePlayer.currentMediaItem ?: return
+        val bookId = item.mediaId.takeIf { it.isNotEmpty() } ?: return
+        val title = item.mediaMetadata.title?.toString() ?: ""
+        val position = activePlayer.currentPosition.coerceAtLeast(0L)
+        listenSession = serviceScope.async { readLog.start(bookId, title, ReadLogKind.Listen, position) }
+    }
+
+    private fun heartbeatListenSession(readLog: ReadLogRepository) {
+        val session = listenSession ?: return
+        val position = activePlayer.currentPosition.coerceAtLeast(0L)
+        serviceScope.launch { readLog.heartbeat(session.await(), position) }
+    }
+
+    private fun endListenSession(readLog: ReadLogRepository) {
+        val session = listenSession ?: return
+        listenSession = null
+        val position = activePlayer.currentPosition.coerceAtLeast(0L)
+        serviceScope.launch { readLog.end(session.await(), position) }
     }
 
     private fun stopPositionSaver() {

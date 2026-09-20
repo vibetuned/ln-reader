@@ -22,6 +22,10 @@ class PositionRepository(
     suspend fun lastPlayedBookId(): String? =
         positionDao.mostRecentExistingBookId()
 
+    /** The most recent playback save, with its timestamp — compared against the last reading save. */
+    suspend fun lastPlayed(): LastActivity? =
+        positionDao.mostRecentExisting()?.let { LastActivity(it.bookId, it.updatedAt) }
+
     suspend fun save(bookId: String, positionMs: Long) {
         positionDao.upsert(
             PositionEntity(
@@ -36,3 +40,6 @@ class PositionRepository(
         positionDao.delete(bookId)
     }
 }
+
+/** A "the user was last here" marker: which book, and when. */
+data class LastActivity(val bookId: String, val updatedAt: Long)
