@@ -299,5 +299,10 @@ object DebugLaunch {
 
     private const val TAG = "DebugLaunch"
     private const val DEFAULT_SEED_DAYS = 120
-    private const val CONTROLLER_TIMEOUT_MS = 5_000L
+    /**
+     * How long a hook waits for the media controller. Generous because scripted runs launch
+     * back to back: the previous launch's playback service can still be tearing down, and a
+     * hook that gives up here silently loads the book at position 0 instead of where it asked.
+     */
+    private const val CONTROLLER_TIMEOUT_MS = 20_000L
 }

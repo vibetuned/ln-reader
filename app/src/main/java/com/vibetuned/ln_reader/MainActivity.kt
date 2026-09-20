@@ -51,7 +51,13 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         // Debug-build launch hooks (`adb shell am start … --es openTitle …`); null in release and
         // on a plain launch. Picked up once the UI is up, in LnReaderApp.
-        (application as LnReaderApplication).container.pendingDebugLaunch = DebugLaunch.parse(intent)
+        // Once per process: a recreated Activity is handed the same Intent again, and re-running
+        // the hooks would re-import the same books.
+        val container = (application as LnReaderApplication).container
+        if (!container.debugLaunchHandled) {
+            container.debugLaunchHandled = true
+            container.pendingDebugLaunch = DebugLaunch.parse(intent)
+        }
         setContent {
             LnReaderTheme {
                 LnReaderApp()

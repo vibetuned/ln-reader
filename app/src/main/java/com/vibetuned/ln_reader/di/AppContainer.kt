@@ -35,6 +35,14 @@ class AppContainer(context: Context) {
      */
     var pendingDebugLaunch: DebugLaunchRequest? = null
 
+    /**
+     * Whether this process has already taken the launch Intent's debug hooks. Android re-delivers
+     * the same Intent when the Activity is recreated — a rotation, or a `wm density` change during
+     * a scripted capture — and without this guard `autoImport` would run again and duplicate every
+     * book it had already added. Process-scoped for the same reason as [lastBookRestoreHandled].
+     */
+    var debugLaunchHandled = false
+
     /** Debug hook: a search to run as soon as the reader has a book loaded (`--es readerSearch q`). */
     var pendingReaderSearch: String? = null
 

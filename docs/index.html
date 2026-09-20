@@ -64,8 +64,8 @@
         <a class="btn btn-ghost" href="https://github.com/vibetuned/ln-reader">View on GitHub</a>
       </div>
       <div class="badge-row">
-        <span class="badge">★ Google Play · v1.5</span>
-        <span class="badge">★ App Store · v1.0</span>
+        <span class="badge">★ Google Play · v1.6</span>
+        <span class="badge">★ App Store · v1.1</span>
         <span class="badge badge-android">Native Android · Kotlin + Jetpack Compose · 13+</span>
         <span class="badge badge-ios">Native iOS · Swift + SwiftUI · 17+</span>
         <span class="badge">100% on-device</span>
@@ -79,9 +79,9 @@
       <div class="section-head">
         <h2>The same app, twice — natively</h2>
         <p>
-          Six screens on both platforms, showing the same public-domain demo books:
-          the library, the player, the image viewer, the sleep timer, and the
-          audio-synced EPUB reader with whole-book search.
+          Seven screens on both platforms, showing the same public-domain demo
+          books: the library, the player, the image viewer, the sleep timer, the
+          audio-synced EPUB reader with whole-book search, and the usage chart.
         </p>
       </div>
       <div class="shots-group">
@@ -93,6 +93,7 @@
           <figure class="shot"><a href="store-screenshots/phone/04_timer.png"><img src="assets/shots/android/04_timer.webp" alt="Android sleep timer" loading="lazy" /></a><figcaption>Sleep timer</figcaption></figure>
           <figure class="shot"><a href="store-screenshots/phone/05_epubreader.png"><img src="assets/shots/android/05_epubreader.webp" alt="Android EPUB reader — narrated sentence highlighted in sync" loading="lazy" /></a><figcaption>Synced reader</figcaption></figure>
           <figure class="shot"><a href="store-screenshots/phone/06_epubsearch.png"><img src="assets/shots/android/06_epubsearch.webp" alt="Android reader search — whole-book results" loading="lazy" /></a><figcaption>Search</figcaption></figure>
+          <figure class="shot"><a href="store-screenshots/phone/07_stats.png"><img src="assets/shots/android/07_stats.webp" alt="Android usage chart — time spent per book, stacked by day" loading="lazy" /></a><figcaption>Time spent</figcaption></figure>
         </div>
       </div>
       <div class="shots-group">
@@ -104,6 +105,7 @@
           <figure class="shot"><a href="store-screenshots/iphone/04_timer.png"><img src="assets/shots/ios/04_timer.webp" alt="iOS sleep timer — running countdown" loading="lazy" /></a><figcaption>Sleep timer</figcaption></figure>
           <figure class="shot"><a href="store-screenshots/iphone/05_epubreader.png"><img src="assets/shots/ios/05_epubreader.webp" alt="iOS EPUB reader — narrated sentence highlighted in sync" loading="lazy" /></a><figcaption>Synced reader</figcaption></figure>
           <figure class="shot"><a href="store-screenshots/iphone/06_epubsearch.png"><img src="assets/shots/ios/06_epubsearch.webp" alt="iOS reader search — whole-book results" loading="lazy" /></a><figcaption>Search</figcaption></figure>
+          <figure class="shot"><a href="store-screenshots/iphone/07_stats.png"><img src="assets/shots/ios/07_stats.webp" alt="iOS usage chart — time spent per book, stacked by day" loading="lazy" /></a><figcaption>Time spent</figcaption></figure>
         </div>
       </div>
       <p class="shots-foot">
@@ -118,41 +120,41 @@
   <section id="whatsnew" class="alt">
     <div class="wrap">
       <div class="section-head">
-        <span class="ver-pill">Android v1.5 · 30 Aug 2026</span>
-        <span class="ver-pill">iOS v1.0 · 11 Sep 2026</span>
+        <span class="ver-pill">Android v1.6 · 20 Sep 2026</span>
+        <span class="ver-pill">iOS v1.1 · 20 Sep 2026</span>
         <h2>What's new</h2>
-        <p>ln-reader lands on the App Store as <strong>L&amp;N Reader</strong> — and v1.5 brings Chromecast, whole-book reader search, an in-app sleep-timer dialog, and a tidier player top bar.</p>
+        <p>Books that are only an EPUB, a chart of where your time goes, and the sleep timer folded into Settings — on both platforms, behind a new shared look.</p>
       </div>
       <div class="grid">
         <div class="card">
-          <span class="ico"></span>
-          <h3>L&amp;N Reader for iPhone &amp; iPad</h3>
-          <p>The full app, rebuilt natively in <span class="plat ios">Swift + SwiftUI</span> — everything the Android version does, plus <strong>AirPlay next to Google Cast</strong> and books that <strong>import themselves straight from AirDrop</strong>.</p>
+          <span class="ico">📚</span>
+          <h3>Books without audio</h3>
+          <p>Import a plain <strong>EPUB</strong> — no narration required. A <strong>page mark</strong> keeps your place, so the book reopens exactly where you left it, and the library tile shows the page you're on instead of a running time. The mini-player stays out of the way until something is actually playing.</p>
         </div>
         <div class="card">
-          <span class="ico">📺</span>
-          <h3>Cast to the TV</h3>
-          <p><strong>Google Cast</strong> from the player on both platforms (plus AirPlay on iOS). Your device streams the book over Wi-Fi while the sleep timer, reader sync, and progress saving keep working; disconnecting hands playback back paused at the same spot.</p>
+          <span class="ico">📊</span>
+          <h3>Time spent</h3>
+          <p>A chart of how long each book has been open — listening and reading together — by <strong>day, week, month or year</strong>. One shade per book, stacked, so a bar shows both how long a day ran and what it went on. <strong>Details</strong> opens the individual sessions, loaded a page at a time as you scroll.</p>
         </div>
         <div class="card">
-          <span class="ico">🔎</span>
-          <h3>Whole-book reader search</h3>
-          <p>Search every page of the EPUB from the reader — case-insensitive, matching across inline formatting. Results by page with the match bolded; tap to jump, highlight in place, and step through matches with next/previous.</p>
+          <span class="ico">⚙️</span>
+          <h3>One Settings tab</h3>
+          <p>The Timer tab is gone on both platforms. The sleep timer now sits in <strong>Settings</strong> under the new chart — four tabs instead of five, and the settings that were split across tabs sit together.</p>
         </div>
         <div class="card">
           <span class="ico">😴</span>
-          <h3>Sleep timer, in your face</h3>
-          <p>When the timer fires while the app is open, a <strong>Postpone / Dismiss</strong> dialog appears over whatever screen you're on — no more silent notification. The dialog, the notification, and shake-to-postpone all drive the same state.</p>
+          <h3>Change a running timer</h3>
+          <p><span class="plat ios">iOS</span> The setup controls stay on screen while a timer runs and start from what is armed: pick new values and tap <strong>Update timer</strong> to replace it, instead of cancelling and starting over — which is how the Android chips have always behaved.</p>
         </div>
         <div class="card">
-          <span class="ico">🎛️</span>
-          <h3>Tidier player top bar</h3>
-          <p>Speed, chapters, and images move into an overflow menu; Cast, Read, and the sleep timer stay as icons — the timer tints while armed so you can see it at a glance.</p>
+          <span class="ico">🎨</span>
+          <h3>A new look</h3>
+          <p>The <strong>Athenaeum</strong> palette and a new icon, shared across the Android app, the iPhone app and this site. Material You theming from the wallpaper is still there behind a flag, but the shared identity is what ships.</p>
         </div>
         <div class="card">
           <span class="ico">🛠️</span>
-          <h3>Polish</h3>
-          <p>The app is now <strong>portrait-only</strong> on phones, the whole-book time-left label sits next to its bar, and progress bars lose Material's stray stop dot.</p>
+          <h3>Fixes</h3>
+          <p><span class="plat android">Android</span> the reader could lose sync with the narration when a page turned as it opened, and player controls could be pushed off a short screen. <span class="plat ios">iOS</span> the mini-player no longer covers the Update button, and the iPad library shows four large covers per row instead of six thin ones.</p>
         </div>
       </div>
       <p class="changelog-foot">
@@ -263,6 +265,24 @@
             <li>Built-in WebView reader with <strong>light / dark mode</strong> and adjustable text size, both remembered.</li>
             <li>A <strong>sync manifest</strong> ties audio timestamps to EPUB beats &amp; illustrations.</li>
             <li>Auto-follow: highlights the active beat, scrolls, and turns pages as you listen.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="ico">📚</span>
+          <h3>Books without audio</h3>
+          <ul>
+            <li>Import a plain <strong>.epub</strong> on its own — no m4b, no narration required.</li>
+            <li>A <strong>page mark</strong> keeps your place, so the book reopens exactly where you left it.</li>
+            <li>The library tile shows the page you are on instead of a running time; the mini-player stays out of the way until you are actually listening to something.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="ico">📊</span>
+          <h3>Time spent</h3>
+          <ul>
+            <li>Every listening and reading session is logged on the device, and charted per book by <strong>day, week, month or year</strong>.</li>
+            <li>One shade per book, stacked, so a bar shows both how long a day ran and what it went on.</li>
+            <li><strong>Details</strong> opens the individual sessions, loaded a page at a time as you scroll.</li>
           </ul>
         </div>
       </div>

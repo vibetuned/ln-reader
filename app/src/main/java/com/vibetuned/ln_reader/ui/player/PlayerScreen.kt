@@ -291,8 +291,15 @@ private fun PlayerContent(
     onMarkerClick: (ImageMarker) -> Unit
 ) {
     val book = state.book ?: return
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
+    // The cover wants four fifths of the width, but on a short screen that square is taller than
+    // the space left once the title, scrubber and transport row have taken theirs — and a Column
+    // does not shrink its children, it runs them off the bottom, taking the play button with it.
+    // Capping the cover against the leftover height keeps the controls on screen. A tablet has
+    // height to spare, so there the width is still what binds and nothing moves.
+    val coverSize = minOf(maxWidth * COVER_WIDTH_FRACTION, maxHeight - MIN_CONTROLS_HEIGHT)
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+        modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Equal weights above and below centre the cover/title/chapter block in the space over the
@@ -303,9 +310,7 @@ private fun PlayerContent(
         Spacer(Modifier.height(8.dp))
         Spacer(Modifier.weight(1f))
         Box(
-            modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .aspectRatio(1f),
+            modifier = Modifier.size(coverSize),
             contentAlignment = Alignment.Center
         ) {
             if (book.coverPath != null) {
@@ -357,6 +362,7 @@ private fun PlayerContent(
             onNextChapter = onNextChapter
         )
         Spacer(Modifier.height(24.dp))
+    }
     }
 }
 
@@ -545,6 +551,15 @@ private fun Scrubber(
 }
 
 private val THUMB_RADIUS = 10.dp
+/** Share of the width the cover takes when height is not the binding constraint. */
+private const val COVER_WIDTH_FRACTION = 0.8f
+
+/**
+ * Floor for everything under the cover — title, chapter selector, their spacers, the scrubber
+ * and the transport row — measured with a two-line title so the cap holds for long titles too.
+ */
+private val MIN_CONTROLS_HEIGHT = 324.dp
+
 private val SCRUBBER_TRACK_HEIGHT = 4.dp
 private const val BOOK_STRIP_WIDTH_FRACTION = 0.32f
 private val BOOK_STRIP_MIN_WIDTH = 110.dp

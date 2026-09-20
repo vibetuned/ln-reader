@@ -1,5 +1,84 @@
 # Changelog
 
+## v1.6 — 2026-09-20
+
+Books that are only an EPUB, a usage chart showing where your time goes, the
+sleep timer folded into Settings, and the new shared look. Plus a fix for the
+reader losing sync with the narration.
+
+### Play Store release notes (≤ 500 chars)
+
+```
+• Books without audio: import a plain EPUB. A page mark keeps your place, and the library tile shows the page you're on instead of a running time.
+• Time spent: how long each book has been open, by day, week, month or year — a shade per book, and a session list behind Details.
+• The sleep timer now lives in Settings, under the new chart.
+• A new icon and colours, shared with the iPhone app.
+• Fixed: the reader could lose sync with the narration.
+```
+
+### Books without audio
+- **EPUB-only imports** — a book no longer needs an `.m4b`. Import a plain
+  `.epub` and it lands in the library like any other book, opening straight
+  into the reader.
+- A **page mark** records the page and how far down it you were, so the book
+  reopens exactly where you left it. There is no listening position to fall
+  back on for these books, so this is what carries your place.
+- The library tile shows **`page / total`** instead of a duration, since a book
+  with no audio has no running time to report.
+- The **mini-player stays hidden** while you read one of these. It returns only
+  when there is actually audio playing, rather than floating over the text with
+  nothing to control.
+
+### Time spent
+- A new **Time spent** section in Settings charts how long each book has been
+  open — listening and reading counted together — over the last **days, weeks,
+  months or years**.
+- Bars are **stacked, one shade per book**, so a tall bar shows both how long a
+  day ran and which books it went on. A legend under the chart totals each book
+  for the range.
+- **Details** opens the individual sessions, newest first. The list loads a
+  page at a time as you scroll rather than reading the whole history up front,
+  so it stays quick however long you have been using the app.
+- Sessions are recorded on the device in a new usage log. Nothing leaves it.
+
+### Settings
+- **The Timer tab is gone**; the sleep timer moved into Settings, which now
+  carries three sections: Downloads, Time spent, and Sleep timer. Four tabs
+  instead of five, and the two settings that were split across tabs sit
+  together.
+
+### Player
+- **Simpler chapter scrubber**, matching the iPhone app: a slim track and a
+  plain round thumb, instead of Material's segmented bar and stop dot.
+- The whole-book progress strip is **centred between the time labels** and
+  twice as wide, so it reads as its own thing rather than a fragment wedged
+  against the chapter time.
+- Time left is now spelled out — **"1 h 48 min left"** — and the chapter name
+  above it is **bold**, which is what the iPhone app has always done.
+- The cover, title and chapter block is **vertically centred** in the space
+  above the scrubber. On a tablet that space is generous, and parking it all at
+  one end read as a hole.
+
+### Fixes
+- **The reader could lose sync with the narration.** If audio sync turned the
+  page at the moment the first page appeared, the reader kept the styling it had
+  injected into the *previous* document — most visibly, dark text on a dark
+  background, and no highlight following the narration. Each page now gets a
+  distinct identity, so the reader always re-applies itself to the document
+  actually on screen.
+- **Player controls could be pushed off the bottom** of a short screen. The
+  cover asked for four fifths of the width whatever the height, and the
+  transport row went off the end of the column. The cover now gives way when
+  there is not enough room.
+
+### Polish
+- The time-left label and the empty part of every progress bar picked up their
+  own muted colours, rather than borrowing the body text colour.
+- The palette is the **Athenaeum** scheme from `visual-design.md` — the same
+  greens the iPhone app and the website use — with a new app icon to match.
+  Material You theming from the wallpaper is still available behind a flag, but
+  is no longer what ships.
+
 ## v1.5 — 2026-08-30
 
 Chromecast support, whole-book text search in the EPUB reader, an in-app
