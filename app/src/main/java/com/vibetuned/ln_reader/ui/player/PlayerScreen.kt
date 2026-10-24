@@ -70,6 +70,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.mediarouter.app.MediaRouteButton
 import com.google.android.gms.cast.framework.CastButtonFactory
+import com.vibetuned.ln_reader.player.SleepTimerState
 import com.vibetuned.ln_reader.player.CastSupport
 import coil3.compose.AsyncImage
 import com.vibetuned.ln_reader.ui.common.appContainer
@@ -205,7 +206,9 @@ fun PlayerScreen(
                     onPrevChapter = viewModel::prevChapter,
                     onNextChapter = viewModel::nextChapter,
                     onOpenChapters = { showChapters = true },
-                    onMarkerClick = { marker -> markerImageIndex = marker.imageIndex }
+                    onMarkerClick = { marker -> markerImageIndex = marker.imageIndex },
+                    sleepTimer = sleepTimerState,
+                    onOpenSleepTimer = { showSleepTimer = true }
                 )
             }
         }
@@ -288,7 +291,9 @@ private fun PlayerContent(
     onPrevChapter: () -> Unit,
     onNextChapter: () -> Unit,
     onOpenChapters: () -> Unit,
-    onMarkerClick: (ImageMarker) -> Unit
+    onMarkerClick: (ImageMarker) -> Unit,
+    sleepTimer: SleepTimerState?,
+    onOpenSleepTimer: () -> Unit
 ) {
     val book = state.book ?: return
     BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
@@ -314,10 +319,27 @@ private fun PlayerContent(
             contentAlignment = Alignment.Center
         ) {
             if (book.coverPath != null) {
-                AsyncImage(
-                    model = File(book.coverPath),
-                    contentDescription = book.title,
-                    modifier = Modifier.fillMaxSize()
+                // Sized to the drawn image rather than the square slot. A portrait cover leaves
+                // bars either side of the slot, and the timer ribbon belongs on the cover's own
+                // bottom edge, at the cover's width. The slot's loose constraints let the image
+                // measure itself, scaled to fit.
+                Box {
+                    AsyncImage(
+                        model = File(book.coverPath),
+                        contentDescription = book.title
+                    )
+                    SleepTimerRibbonSlot(
+                        timer = sleepTimer,
+                        onClick = onOpenSleepTimer,
+                        modifier = Modifier.matchParentSize()
+                    )
+                }
+            } else {
+                // No art to sit on: the ribbon takes the bottom of the empty slot instead.
+                SleepTimerRibbonSlot(
+                    timer = sleepTimer,
+                    onClick = onOpenSleepTimer,
+                    modifier = Modifier.matchParentSize()
                 )
             }
         }
