@@ -4,6 +4,7 @@
 
   idev.py calib                        # measure the mirrored screen (run first, and after moving
                                        # or resizing the window)
+  idev.py calib --device <udid>        # the same, matched against a screenshot taken on the device
   idev.py tap   <x> <y>                # device points, e.g. 50 822 for the first tab
   idev.py swipe <x1> <y1> <x2> <y2> [steps]
 
@@ -18,12 +19,20 @@ directly: the Dynamic Island is a black island *inside* the screen, and in dark 
 surface is nearly as dark as the bezel, so "first bright row" lands too low. Getting this wrong is
 silent — swipes still scroll something and only taps miss.
 
+A physical device can defeat the bezel entirely: with a black wallpaper the screen *is* bezel-black,
+and the measured screen collapses to a sliver. `calib --device <udid>` sidesteps it. It takes a
+screenshot on the device with `devicectl` at the same moment as the window capture, finds the
+bright content (status bar, icons, dock) in both, and maps one onto the other. That needs only
+something bright near the screen's edges, which a home screen or the app's library always has.
+
 Requirements: DeviceHub open with the device mirrored (Xcode ▸ Window ▸ Devices), ImageMagick on
 PATH, and pyobjc-framework-Quartz (`pip install pyobjc-framework-Quartz`, ideally in a venv).
 Terminal needs Accessibility and Screen Recording permission, or the clicks and the screenshot
 that calibration depends on both fail.
 
-The device size below is an iPhone 17 Pro (402x874 pt); change `DEVICE_PT` for another device.
+The device's size in points defaults to an iPhone 17 Pro (402x874). For anything else set
+`IDEV_PT`, e.g. `IDEV_PT=820x1180` for an iPad Air 11-inch; a saved calibration made for a
+different size is redone automatically.
 """
 import json, os, subprocess, sys, time
 import Quartz
@@ -31,9 +40,8 @@ import Quartz
 HERE = os.path.dirname(os.path.abspath(__file__))
 CALIB = os.path.join(HERE, "idev_calib.json")
 
-# Logical size of the mirrored device, in points. iPhone 17 Pro; an iPad or another phone needs
-# its own values (and a fresh `calib`).
-DEVICE_PT = (402.0, 874.0)
+# Logical size of the mirrored device, in points: IDEV_PT=<w>x<h>, or an iPhone 17 Pro.
+DEVICE_PT = tuple(float(v) for v in os.environ.get("IDEV_PT", "402x874").lower().split("x"))
 
 
 def window_rect():
@@ -117,10 +125,92 @@ def calibrate():
     return data
 
 
+def _bbox(img, args):
+    """Bounding box of the white that survives `args` (a filter chain ending in black/white).
+
+    `%@` measures the trim box without trimming; running `-trim` first would report the already
+    trimmed image, always at +0+0. A window capture's rounded corners are transparent: flattened
+    onto mid-grey they stay out of both the near-black and the bright masks, where flattening to
+    black would put them in the device-body mask. The one-pixel black border then pins the
+    background colour that `%@` trims against.
+    """
+    out = subprocess.run(["magick", img, "-background", "gray50", "-alpha", "remove", *args,
+                          "-bordercolor", "black", "-border", "1", "-format", "%@", "info:"],
+                         capture_output=True, text=True).stdout.strip()
+    wh, x, y = out.split("+")
+    w, h = wh.split("x")
+    return int(x) - 1, int(y) - 1, int(w), int(h)
+
+
+def calibrate_with_device(udid):
+    wx, wy, ww, wh = window_rect()
+    shot = os.path.join(HERE, "_calib.png")
+    dev = os.path.join(HERE, "_device.png")
+    subprocess.run(["screencapture", "-x", f"-R{wx},{wy},{ww},{wh}", shot], check=True)
+    subprocess.run(["xcrun", "devicectl", "device", "capture", "screenshot", "--device", udid,
+                    "--destination", dev, "--timeout", "60"], check=True, capture_output=True)
+    cw = int(subprocess.run(["magick", "identify", "-format", "%w", shot],
+                            capture_output=True, text=True).stdout)
+    px = cw / ww  # capture pixels per window point
+
+    # The device body: the largest connected near-black shape in the window. The window's own
+    # greys are well above it and the opening step drops dark text and hairlines. It has to be the
+    # largest *connected* shape, not the box around all of them: whatever shows behind the
+    # window's rounded corners is often black too, and would stretch a plain box to the full size.
+    comps = subprocess.run(
+        ["magick", shot, "-alpha", "off", "-colorspace", "gray", "-threshold", "3%", "-negate",
+         "-morphology", "Open", "Square:8", "-define", "connected-components:verbose=true",
+         "-define", "connected-components:area-threshold=2000", "-connected-components", "8",
+         "null:"], capture_output=True, text=True).stdout.splitlines()[1:]
+    white = []
+    for ln in comps:
+        parts = ln.split()
+        if len(parts) >= 5 and parts[-1] == "gray(255)":
+            wh, x, y = parts[1].split("+")
+            w, h = wh.split("x")
+            white.append((float(parts[3]), int(x), int(y), int(w), int(h)))
+    if not white:
+        sys.exit("calibration failed: no device body in the DeviceHub window — is the device mirrored?")
+    _, bx, by, bw, bh = max(white)
+    body = os.path.join(HERE, "_body.png")
+    subprocess.run(["magick", shot, "-crop", f"{bw}x{bh}+{bx}+{by}", "+repage", body], check=True)
+
+    # Bright content, on the device and in the mirror. Inside the body nothing but the screen can be
+    # bright, so the two boxes are the same content at two scales.
+    bright = ["-colorspace", "gray", "-threshold", "40%", "-morphology", "Open", "Square:1"]
+    dx, dy, dw, dh = _bbox(dev, bright)
+    mx, my, mw, mh = _bbox(body, bright)
+    mx += bx; my += by
+
+    sx, sy = mw / dw, mh / dh  # capture pixels per device pixel
+    if abs(sx - sy) / sx > 0.03:
+        sys.exit(f"calibration failed: horizontal and vertical scale disagree ({sx:.4f} vs {sy:.4f}); "
+                 "show something bright near the screen's edges (a home screen works) and retry")
+    dev_w = int(subprocess.run(["magick", "identify", "-format", "%w", dev],
+                               capture_output=True, text=True).stdout)
+    dpp = dev_w / DEVICE_PT[0]  # device pixels per device point
+    scale = (sx + sy) / 2
+    data = {
+        # Device point (0,0) is device pixel (0,0): step back from the content box's corner.
+        "origin_x": wx + (mx - dx * scale) / px,
+        "origin_y": wy + (my - dy * scale) / px,
+        "scale": scale * dpp / px,  # window points per device point
+        "device_pt": list(DEVICE_PT),
+    }
+    json.dump(data, open(CALIB, "w"), indent=2)
+    print(f"calibrated against the device: origin=({data['origin_x']:.1f},{data['origin_y']:.1f}) "
+          f"scale={data['scale']:.4f} (x/y agree within {abs(sx - sy) / sx:.1%})")
+    return data
+
+
 def load():
     if not os.path.exists(CALIB):
         return calibrate()
-    return json.load(open(CALIB))
+    data = json.load(open(CALIB))
+    # Calibrated for another device: its origin and scale are meaningless for this one.
+    if tuple(data.get("device_pt", ())) != DEVICE_PT:
+        return calibrate()
+    return data
 
 
 def to_screen(c, x, y):
@@ -163,7 +253,10 @@ def swipe(c, x1, y1, x2, y2, steps=16):
 if __name__ == "__main__":
     cmd = sys.argv[1]
     if cmd == "calib":
-        calibrate()
+        if "--device" in sys.argv:
+            calibrate_with_device(sys.argv[sys.argv.index("--device") + 1])
+        else:
+            calibrate()
     elif cmd == "tap":
         tap(load(), float(sys.argv[2]), float(sys.argv[3]))
     elif cmd == "swipe":

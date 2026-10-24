@@ -1,5 +1,13 @@
 package com.vibetuned.ln_reader.ui.player
 
+import com.vibetuned.ln_reader.player.SleepTimerState
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.SideEffect
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.animation.Crossfade
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -78,6 +86,7 @@ fun MiniPlayerBar(
     val books by container.bookRepository.books().collectAsStateWithLifecycle(initialValue = emptyList())
     val nowPlaying = rememberNowPlaying(controller) ?: return
     val c = controller ?: return
+    val sleepTimer by container.sleepTimerController.state.collectAsStateWithLifecycle()
     val readingEpubOnly = readingBookId != null &&
         books.any { it.id == readingBookId && !it.hasAudio }
     if (readingEpubOnly && !nowPlaying.isPlaying) return
@@ -122,13 +131,7 @@ fun MiniPlayerBar(
                     Spacer(Modifier.width(10.dp))
                 }
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        nowPlaying.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    TitleOrSleepTimer(title = nowPlaying.title, timer = sleepTimer)
                     if (!nowPlaying.subtitle.isNullOrBlank()) {
                         Text(
                             nowPlaying.subtitle,
@@ -235,4 +238,53 @@ private fun MediaController.toNowPlaying(): NowPlaying? {
         positionMs = currentPosition.coerceAtLeast(0),
         durationMs = duration.takeIf { it > 0 } ?: 0L
     )
+}
+
+/**
+ * The bar's top line: the book's title, or — while a sleep timer is armed — its countdown, the
+ * same text as the ribbon on the player cover. The cover thumbnail beside it already says which
+ * book this is; how long until it stops is the thing worth a glance from another screen.
+ */
+@Composable
+private fun TitleOrSleepTimer(title: String, timer: SleepTimerState?) {
+    // While the countdown fades out it still needs something to say; keep the last reading.
+    val last = remember { mutableStateOf<SleepTimerState?>(null) }
+    SideEffect { if (timer != null) last.value = timer }
+
+    Crossfade(targetState = timer != null, label = "mini-player title") { armed ->
+        val shown = if (armed) timer ?: last.value else null
+        if (shown != null) {
+            val label = shown.label()
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.semantics(mergeDescendants = true) {
+                    contentDescription = "$title. Sleep timer, $label"
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Bedtime,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = label,
+                    // Tabular figures, so the countdown doesn't shuffle sideways as it ticks.
+                    style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"),
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        } else {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
 }

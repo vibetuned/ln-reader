@@ -70,10 +70,7 @@ fun SleepTimerRibbonSlot(
 
 @Composable
 private fun SleepTimerRibbon(timer: SleepTimerState, onClick: () -> Unit, modifier: Modifier) {
-    val label = sleepTimerRibbonLabel(
-        msUntilStop = timer.msUntilStop,
-        chaptersLeft = (timer as? SleepTimerState.UntilChapterBoundary)?.chaptersRemaining
-    )
+    val label = timer.label()
     Row(
         modifier = modifier
             // A dark scrim in either theme: it sits on cover art, not on the app's own surface.
@@ -102,28 +99,6 @@ private fun SleepTimerRibbon(timer: SleepTimerState, onClick: () -> Unit, modifi
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-    }
-}
-
-/**
- * "29:41 left" for a time-based timer; for a chapter-based one, which chapter it stops at:
- * "3:12 left · end of chapter" when the current chapter is the last, "12:30 left · 2 chapters"
- * otherwise. Hours appear only once there is at least one: "1:30:00 left".
- *
- * Mirrors `SleepTimerLabel.ribbon` in the iOS app, so the two read the same.
- */
-internal fun sleepTimerRibbonLabel(msUntilStop: Long, chaptersLeft: Int?): String {
-    // Round up, like the Settings countdown: a timer with 0.4 s to go still reads 0:01.
-    val total = (msUntilStop.coerceAtLeast(0L) + 999) / 1000
-    val countdown = if (total >= 3600) {
-        "%d:%02d:%02d".format(total / 3600, total / 60 % 60, total % 60)
-    } else {
-        "%d:%02d".format(total / 60, total % 60)
-    }
-    return when {
-        chaptersLeft == null -> "$countdown left"
-        chaptersLeft <= 1 -> "$countdown left · end of chapter"
-        else -> "$countdown left · $chaptersLeft chapters"
     }
 }
 

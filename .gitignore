@@ -39,3 +39,5 @@ Thumbs.db
 # Custom user environments
 .claude
 .kotlin
+# idev.py calibration: where the DeviceHub window sits on this Mac, not shareable
+docs/store-screenshots/tools/idev_calib.json

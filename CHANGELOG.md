@@ -2,15 +2,15 @@
 
 ## v1.7 — 2026-10-20
 
-The app now runs on Android 10 and newer, down from Android 13; the player shows
-an armed sleep timer's countdown on the cover; and the playback notification names
+The app now runs on Android 10 and newer, down from Android 13; the player and
+the mini-player show an armed sleep timer's countdown; and the playback notification names
 the current chapter instead of leaving its second line blank.
 
 ### Play Store release notes (≤ 500 chars)
 
 ```
 • Now runs on Android 10 and newer — previously Android 13 was required.
-• The sleep timer's countdown now shows on the cover in the player. Tap it to change or cancel the timer.
+• The sleep timer's countdown now shows on the player's cover, and in place of the book title in the mini-player.
 • The playback notification and lock screen show the current chapter under the book title, instead of a blank line (or "null" on some phones).
 ```
 
@@ -28,6 +28,10 @@ the current chapter instead of leaving its second line blank.
   Until now the countdown only showed in Settings and in the notification shade,
   never on the screen you listen from. Tap the band to change or cancel the
   timer; it slides in when a timer is armed and away when it ends.
+- **Sleep timer in the mini-player** — from every other screen, the
+  mini-player swaps the book's title for the same countdown while a timer is
+  armed, and back when it ends. The cover thumbnail beside it still says which
+  book is playing.
 
 ### Playback notification
 - **The current chapter, under the title** — the second line of the media
