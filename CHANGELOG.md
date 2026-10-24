@@ -10,10 +10,11 @@ the current chapter instead of leaving its second line blank.
 ### Play Store release notes (≤ 500 chars)
 
 ```
-• Now runs on Android 10 and newer — previously Android 13 was required.
-• Import a .zip: every book in it comes in with its EPUB and sync file, and several books get a collection.
-• The sleep timer's countdown now shows on the player's cover, and in place of the book title in the mini-player.
-• The playback notification and lock screen show the current chapter under the book title, instead of a blank line (or "null" on some phones).
+• Now runs on Android 10 and newer (was Android 13).
+• Import a .zip: each book comes in with its EPUB and sync file; several books get a collection.
+• The sleep timer's countdown shows on the player's cover and in the mini-player.
+• Illustration markers too close together on the scrubber share one badge with a menu.
+• The playback notification and lock screen show the current chapter instead of a blank line (or "null" on some phones).
 ```
 
 ### Compatibility
@@ -44,6 +45,10 @@ the current chapter instead of leaving its second line blank.
   Until now the countdown only showed in Settings and in the notification shade,
   never on the screen you listen from. Tap the band to change or cancel the
   timer; it slides in when a timer is armed and away when it ends.
+- **Illustrations too close to tap apart now share a badge** — where markers
+  on the scrubber would overlap, one badge shows how many there are, and tapping
+  it opens a menu listing them with a thumbnail and their time in the chapter.
+  Picking one opens it, as tapping a single marker does.
 - **Sleep timer in the mini-player** — from every other screen, the
   mini-player swaps the book's title for the same countdown while a timer is
   armed, and back when it ends. The cover thumbnail beside it still says which

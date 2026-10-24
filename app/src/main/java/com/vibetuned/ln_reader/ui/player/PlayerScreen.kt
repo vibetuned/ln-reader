@@ -26,6 +26,10 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Forward30
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.Photo
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Badge
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.SkipNext
@@ -369,6 +373,7 @@ private fun PlayerContent(
             chapterStartMs = state.currentChapterStartMs,
             bookDurationMs = state.durationMs,
             markers = state.imageMarkers,
+            imagePaths = state.images.map { it.cachePath },
             onSeek = onSeek,
             onMarkerClick = onMarkerClick
         )
@@ -437,6 +442,72 @@ private fun ChapterSelector(
     }
 }
 
+/**
+ * Several illustrations too close together on the scrubber to tap one by one: one badge with how
+ * many there are, opening a menu that lists them — the same kind of menu as the top bar's ⋮ — each
+ * with its picture and where it falls in the chapter.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MarkerGroupBadge(
+    markers: List<ImageMarker>,
+    chapterStartMs: Long,
+    imagePaths: List<String>,
+    onMarkerClick: (ImageMarker) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        IconButton(onClick = { expanded = true }, modifier = Modifier.size(40.dp)) {
+            BadgedBox(
+                badge = {
+                    Badge(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ) { Text("${markers.size}") }
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.PhotoLibrary,
+                    contentDescription = "${markers.size} illustrations here",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            markers.forEach { marker ->
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text("Image ${marker.imageIndex + 1}")
+                            Text(
+                                formatTime(marker.positionMs - chapterStartMs),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    leadingIcon = {
+                        AsyncImage(
+                            model = imagePaths.getOrNull(marker.imageIndex)?.let(::File),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(MaterialTheme.shapes.extraSmall)
+                        )
+                    },
+                    onClick = {
+                        expanded = false
+                        onMarkerClick(marker)
+                    }
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Scrubber(
@@ -445,6 +516,7 @@ private fun Scrubber(
     chapterStartMs: Long,
     bookDurationMs: Long,
     markers: List<ImageMarker>,
+    imagePaths: List<String>,
     onSeek: (Long) -> Unit,
     onMarkerClick: (ImageMarker) -> Unit
 ) {
@@ -464,21 +536,35 @@ private fun Scrubber(
                 .fillMaxWidth()
                 .height(20.dp)
         ) {} // reserves the marker strip height above the slider
-        localMarkers.forEach { marker ->
+        // Inset by the thumb radius so markers line up with the usable track.
+        fun xOf(marker: ImageMarker): Float {
             val frac = ((marker.positionMs - chapterStartMs).toFloat() / maxValue).coerceIn(0f, 1f)
-            // Inset by the thumb radius so markers line up with the usable track.
-            val x = THUMB_RADIUS + (trackWidth - THUMB_RADIUS * 2) * frac
-            IconButton(
-                onClick = { onMarkerClick(marker) },
-                modifier = Modifier
-                    .offset(x = x - 20.dp)
-                    .size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Photo,
-                    contentDescription = "Illustration here",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
+            return (THUMB_RADIUS + (trackWidth - THUMB_RADIUS * 2) * frac).value
+        }
+        // Markers closer than this would draw on top of each other; they share one badge instead.
+        groupMarkers(localMarkers, ::xOf, MARKER_MIN_GAP.value).forEach { group ->
+            val single = group.items.singleOrNull()
+            if (single != null) {
+                IconButton(
+                    onClick = { onMarkerClick(single) },
+                    modifier = Modifier
+                        .offset(x = group.center.dp - 20.dp)
+                        .size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Photo,
+                        contentDescription = "Illustration here",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            } else {
+                MarkerGroupBadge(
+                    markers = group.items,
+                    chapterStartMs = chapterStartMs,
+                    imagePaths = imagePaths,
+                    onMarkerClick = onMarkerClick,
+                    modifier = Modifier.offset(x = group.center.dp - 20.dp)
                 )
             }
         }
@@ -581,6 +667,12 @@ private const val COVER_WIDTH_FRACTION = 0.8f
  * and the transport row — measured with a two-line title so the cap holds for long titles too.
  */
 private val MIN_CONTROLS_HEIGHT = 324.dp
+
+/**
+ * Closest two scrubber markers may sit before they share a badge: the 18dp icon plus a 10dp gap,
+ * so icons never touch and each keeps a clear tap area of its own.
+ */
+private val MARKER_MIN_GAP = 28.dp
 
 private val SCRUBBER_TRACK_HEIGHT = 4.dp
 private const val BOOK_STRIP_WIDTH_FRACTION = 0.32f
