@@ -1,5 +1,39 @@
 # Changelog
 
+## v1.7 — 2026-10-20
+
+The app now runs on Android 10 and newer, down from Android 13, and the playback
+notification names the current chapter instead of leaving its second line blank.
+
+### Play Store release notes (≤ 500 chars)
+
+```
+• Now runs on Android 10 and newer — previously Android 13 was required.
+• The playback notification and lock screen show the current chapter under the book title, instead of a blank line (or "null" on some phones).
+```
+
+### Compatibility
+- **Android 10 and newer** — the minimum drops from Android 13 (API 33) to
+  Android 10 (API 29). Nothing in the app needed Android 11–13: every library
+  supports Android 5, lint finds no newer-API call at this floor, the
+  notification-permission prompt was already skipped below Android 13, and all
+  database queries and migrations stay within Android 10's SQLite.
+
+### Playback notification
+- **The current chapter, under the title** — the second line of the media
+  notification, the lock screen, the system media controls and car displays now
+  reads like *"I. Atomic Explosives (May 1946) · Chapter 2 of 9"*, or just
+  *"Chapter 3 of 18"* for an untitled chapter. It updates as each chapter
+  begins, and straight away after a seek or a change of book.
+- That line used to show the author, taken from the audio file's artist tag —
+  which almost no audiobook carries. It was blank on most phones, and some
+  Pixel phones printed the missing value as **"null"**. A book without chapters
+  keeps showing its author, if it has one.
+- Only what the system is shown changes. The book itself is untouched, so
+  nothing re-buffers at a chapter boundary, a cast receiver still gets the
+  book's own details, and *Time spent* still counts one listening session
+  rather than one per chapter.
+
 ## v1.6 — 2026-09-20
 
 Books that are only an EPUB, a usage chart showing where your time goes, the

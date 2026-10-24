@@ -72,7 +72,7 @@ What they unlock, depending on what's attached:
 
 ## Requirements
 
-- Android 13 or newer (minSdk 33, targetSdk 36). The app is **portrait-only**.
+- Android 10 or newer (minSdk 29, targetSdk 36). The app is **portrait-only**.
 - A file manager / cloud app that exposes a `DocumentsProvider` for the source of your `.m4b` files. Google Drive, OneDrive, the system Files app, and most third-party file managers work.
 - Casting (optional) needs Google Play services on the phone and a Google Cast device on the **same Wi-Fi network**.
 

@@ -55,6 +55,15 @@ class PlaybackService : MediaSessionService() {
 
     private lateinit var player: ExoPlayer
     private var castPlayer: CastPlayer? = null
+
+    /**
+     * What the session actually drives: each real player wrapped so the notification's subtitle
+     * names the current chapter. See [ChapterSubtitlePlayer]. Teardown still releases the real
+     * players directly; the wrappers own nothing that needs releasing.
+     */
+    private lateinit var localSessionPlayer: ChapterSubtitlePlayer
+    private var castSessionPlayer: ChapterSubtitlePlayer? = null
+    private var chapterTickJob: Job? = null
     private var castMediaServer: CastMediaServer? = null
     private var session: MediaSession? = null
 
@@ -94,16 +103,19 @@ class PlaybackService : MediaSessionService() {
                 if (isPlaying) {
                     startPositionSaver(container.positionRepository)
                     beginListenSession(container.readLogRepository)
+                    startChapterTicker()
                 } else {
                     stopPositionSaver()
                     saveCurrentPosition(container.positionRepository)
                     endListenSession(container.readLogRepository)
+                    stopChapterTicker()
                 }
             }
 
             // Switching books mid-playback (continuing a collection) is one session ending and
             // another starting; `onIsPlayingChanged` alone wouldn't split them.
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                loadChapters(container, mediaItem)
                 if (listenSession != null) {
                     endListenSession(container.readLogRepository)
                     if (activePlayer.isPlaying) beginListenSession(container.readLogRepository)
@@ -112,7 +124,8 @@ class PlaybackService : MediaSessionService() {
         }
         player.addListener(positionSaverListener)
 
-        session = MediaSession.Builder(this, player)
+        localSessionPlayer = ChapterSubtitlePlayer(player)
+        session = MediaSession.Builder(this, localSessionPlayer)
             .setCallback(LnReaderSessionCallback(container, buildCustomLayout()))
             .build()
 
@@ -136,14 +149,16 @@ class PlaybackService : MediaSessionService() {
             SKIP_FORWARD_MS
         )
         cast.addListener(positionSaverListener)
+        val castSession = ChapterSubtitlePlayer(cast)
+        castSessionPlayer = castSession
         cast.setSessionAvailabilityListener(object : SessionAvailabilityListener {
             override fun onCastSessionAvailable() {
                 runCatching { server.startIfNeeded() }
-                switchSessionPlayer(cast, pauseAfterSwitch = false)
+                switchSessionPlayer(castSession, pauseAfterSwitch = false)
             }
 
             override fun onCastSessionUnavailable() {
-                switchSessionPlayer(player, pauseAfterSwitch = true)
+                switchSessionPlayer(localSessionPlayer, pauseAfterSwitch = true)
                 server.stopIfRunning()
             }
         })
@@ -203,6 +218,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         stopPositionSaver()
+        stopChapterTicker()
         endListenSession((application as LnReaderApplication).container.readLogRepository)
         castPlayer?.setSessionAvailabilityListener(null)
         castMediaServer?.stopIfRunning()
@@ -257,6 +273,38 @@ class PlaybackService : MediaSessionService() {
         positionSaveJob = null
     }
 
+    // ── notification subtitle: the current chapter ────────────────────────────
+
+    /** Fetches the playing book's chapters for both session players' subtitle. */
+    private fun loadChapters(container: AppContainer, item: MediaItem?) {
+        val bookId = item?.mediaId?.takeIf { it.isNotEmpty() } ?: return
+        serviceScope.launch {
+            val chapters = container.bookRepository.getDetail(bookId)?.chapters.orEmpty()
+            localSessionPlayer.setChapters(bookId, chapters)
+            castSessionPlayer?.setChapters(bookId, chapters)
+        }
+    }
+
+    /**
+     * While playing, re-checks the chapter once a second: crossing a boundary in steady playback
+     * raises no player event, so this is the only thing that notices. Seeks and book changes are
+     * already reported by the player and update the subtitle straight away.
+     */
+    private fun startChapterTicker() {
+        stopChapterTicker()
+        chapterTickJob = serviceScope.launch {
+            while (true) {
+                delay(CHAPTER_TICK_MS)
+                (session?.player as? ChapterSubtitlePlayer)?.refreshChapter()
+            }
+        }
+    }
+
+    private fun stopChapterTicker() {
+        chapterTickJob?.cancel()
+        chapterTickJob = null
+    }
+
     private fun saveCurrentPosition(positionRepository: PositionRepository) {
         val bookId = activePlayer.currentMediaItem?.mediaId?.takeIf { it.isNotEmpty() } ?: return
         val pos = activePlayer.currentPosition
@@ -266,6 +314,7 @@ class PlaybackService : MediaSessionService() {
 
     companion object {
         private const val POSITION_SAVE_INTERVAL_MS = 5_000L
+        private const val CHAPTER_TICK_MS = 1_000L
         private const val SKIP_BACK_MS = 10_000L
         private const val SKIP_FORWARD_MS = 30_000L
     }
