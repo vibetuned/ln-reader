@@ -13,7 +13,8 @@ set -euo pipefail
 
 UDID="$1"
 OUT="$2"
-APP_ID=com.vibetuned.lnreader
+# The Automation configuration (xcodebuild -configuration Automation) is its own app.
+APP_ID=com.vibetuned.lnreader.debug
 mkdir -p "$OUT"
 
 S() { xcrun simctl "$@"; }

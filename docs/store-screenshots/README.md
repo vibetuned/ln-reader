@@ -61,8 +61,10 @@ Needs a debuggable build; the demo books are staged through `run-as`, so no `adb
 `androidTest` fixture.
 
 ```sh
-./gradlew :app:assembleDebug
-adb install -r -g app/build/outputs/apk/debug/app-debug.apk   # -g grants POST_NOTIFICATIONS
+# The automation build: debuggable, with the launch hooks, and its own app (.debug), so none of
+# this touches the everyday install.
+./gradlew :app:assembleAutomation
+adb install -r -g app/build/outputs/apk/automation/app-automation.apk   # -g grants POST_NOTIFICATIONS
 
 tools/prep.sh emulator-5554
 tools/seed.sh emulator-5554 ~/demo
@@ -88,7 +90,9 @@ is the system's own indicator on this Android 17 image.
 ```sh
 cd ../../ln-reader-ios
 xcodegen generate
-xcodebuild -scheme LnReader -configuration Debug \
+# The Automation configuration: Debug plus its own bundle ID (.debug), so none of this touches
+# the everyday install.
+xcodebuild -scheme LnReader -configuration Automation \
   -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd build
 
 cd ../ln-reader/docs/store-screenshots

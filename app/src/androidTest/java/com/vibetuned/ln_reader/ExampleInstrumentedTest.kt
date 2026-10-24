@@ -19,6 +19,7 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.vibetuned.ln_reader", appContext.packageName)
+        // Instrumented tests run against the automation build (testBuildType), its own app.
+        assertEquals("com.vibetuned.ln_reader.debug", appContext.packageName)
     }
 }

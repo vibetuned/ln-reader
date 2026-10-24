@@ -21,11 +21,13 @@ import java.io.File
 /**
  * Launch hooks for scripted smoke tests — the Android side of the iOS `-autoImport` / `-openTitle`
  * family, read from the starting Intent's extras. Debug builds only ([BuildConfig.DEBUG]); a
- * release build parses nothing.
+ * release build parses nothing. Scripts drive the `automation` build, its own app
+ * (`com.vibetuned.ln_reader.debug`), so `am start` names the activity in full: the `.MainActivity`
+ * shorthand would resolve against that package, where no such class exists.
  *
  * ```
- * adb shell am start -n com.vibetuned.ln_reader/.MainActivity \
- *     --es  autoImport "/sdcard/Android/data/com.vibetuned.ln_reader/files/books/book.m4b" \
+ * adb shell am start -n com.vibetuned.ln_reader.debug/com.vibetuned.ln_reader.MainActivity \
+ *     --es  autoImport "/sdcard/Android/data/com.vibetuned.ln_reader.debug/files/books/book.m4b" \
  *     --ez  autoPlay true \
  *     --es  openTitle "A Certain" \
  *     --ei  seekTo 120 \
@@ -54,7 +56,7 @@ import java.io.File
  * | `tab` | library / player / images / settings (`timer` is an alias) | end on this tab |
  *
  * Files must be somewhere the app can read without a picker; `adb push` to the app's external
- * files dir (`/sdcard/Android/data/com.vibetuned.ln_reader/files/…`) is the reliable spot.
+ * files dir (`/sdcard/Android/data/com.vibetuned.ln_reader.debug/files/…`) is the reliable spot.
  */
 data class DebugLaunchRequest(
     val autoImport: List<String>,

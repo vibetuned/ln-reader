@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.7 — 2026-10-20
+## v1.7 — 2026-10-25
 
 The app now runs on Android 10 and newer, down from Android 13. A zip of books
 imports in one go, and a book can be shared whole; the player and the mini-player
@@ -75,6 +75,14 @@ current chapter instead of leaving its second line blank.
   nothing re-buffers at a chapter boundary, a cast receiver still gets the
   book's own details, and *Time spent* still counts one listening session
   rather than one per chapter.
+
+### Development
+- **Automated runs get their own app** — a new `automation` build type,
+  `com.vibetuned.ln_reader.debug` ("ln-reader debug"), installs beside the
+  everyday app, and instrumented tests now test it. Scripts and coding agents
+  use it, so their installs, test runs and the uninstalls some of them end with
+  can't reach the real library. Android Studio's Run still builds `debug`, the
+  everyday app.
 
 ## v1.6 — 2026-09-20
 

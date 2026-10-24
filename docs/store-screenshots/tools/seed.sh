@@ -17,7 +17,8 @@ set -euo pipefail
 
 SERIAL="$1"
 DEMO="${2:-$HOME/demo}"
-PKG=com.vibetuned.ln_reader
+# The automation build (./gradlew assembleAutomation) is its own app, beside the everyday one.
+PKG=com.vibetuned.ln_reader.debug
 FILES=files/demo
 
 A() { adb -s "$SERIAL" "$@"; }
@@ -30,7 +31,7 @@ A() { adb -s "$SERIAL" "$@"; }
 # force-stop, Android resumes it instead of creating the Activity, and the Intent arrives at
 # onNewIntent — which nothing reads, so the scene's hooks silently do nothing.
 amstart() {
-  local cmd="am start -S -W -f 0x10008000 -n $PKG/.MainActivity" a
+  local cmd="am start -S -W -f 0x10008000 -n $PKG/com.vibetuned.ln_reader.MainActivity" a
   # POSIX single-quote escaping: close the quote, emit an escaped one, reopen.
   for a in "$@"; do cmd+=" '$(printf '%s' "$a" | sed "s/'/'\\\\''/g")'"; done
   A shell "$cmd" >/dev/null

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The automation build is its own app (applicationIdSuffix ".debug"); the name says which is which. -->
+<resources>
+    <string name="app_name">ln-reader debug</string>
+</resources>

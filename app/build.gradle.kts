@@ -22,7 +22,22 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // Instrumented tests uninstall the app they test when they finish; they test the separate
+    // automation app, so a run on a real device can't take the everyday library with it.
+    testBuildType = "automation"
+
     buildTypes {
+        // What scripted runs and coding agents install — never Android Studio, whose Run button
+        // builds `debug`, the everyday app. A separate app ("ln-reader debug") so their installs,
+        // test runs and the uninstalls some of them end with can't reach the real library. Same
+        // as debug otherwise: debuggable, debug-signed, with the DebugLaunch hooks.
+        // (Its label comes from src/automation/res/values/strings.xml.)
+        create("automation") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            matchingFallbacks += "debug"
+        }
         release {
             ndk{
                 debugSymbolLevel = "FULL"

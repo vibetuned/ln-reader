@@ -9,8 +9,9 @@ set -euo pipefail
 
 UDID="$1"
 DEMO="${2:-$HOME/demo}"
-APP_ID=com.vibetuned.lnreader
-APP="${APP_PATH:-/Users/osf/pprojects/ln-reader-ios/build/dd/Build/Products/Debug-iphonesimulator/LnReader.app}"
+# The Automation configuration (xcodebuild -configuration Automation) is its own app.
+APP_ID=com.vibetuned.lnreader.debug
+APP="${APP_PATH:-/Users/osf/pprojects/ln-reader-ios/build/dd/Build/Products/Automation-iphonesimulator/LnReader.app}"
 
 S() { xcrun simctl "$@"; }
 # launch <args...> — relaunch the app from scratch with debug hooks and let it settle.
