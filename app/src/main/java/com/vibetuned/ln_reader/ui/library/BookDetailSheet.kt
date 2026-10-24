@@ -1,5 +1,10 @@
 package com.vibetuned.ln_reader.ui.library
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material.icons.outlined.Share
+import android.content.Intent
+import android.content.ClipData
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -178,6 +183,8 @@ fun BookDetailSheet(
                 }
                 Spacer(Modifier.height(8.dp))
             }
+            ShareBookButton(bookId = liveBook.id, title = liveBook.title)
+            Spacer(Modifier.height(8.dp))
             if (liveBook.collectionId == null) {
                 OutlinedButton(
                     onClick = { showCollectionPicker = true },
@@ -358,6 +365,67 @@ private fun Stat(label: String, value: String) {
             label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/**
+ * Sends the book through the system share sheet — Quick Share, Nearby Share, mail, Drive… What
+ * goes depends on the book (see [com.vibetuned.ln_reader.data.repo.BookRepository.prepareShare]):
+ * an audiobook with its EPUB or sync manifest travels as one zip, so ln-reader on the other end
+ * rebuilds it whole. Writing that zip takes a moment for a long book, so the button shows how far
+ * along it is.
+ */
+@Composable
+private fun ShareBookButton(bookId: String, title: String) {
+    val container = appContainer()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var progress by remember { mutableStateOf<Float?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    OutlinedButton(
+        onClick = {
+            error = null
+            progress = 0f
+            scope.launch {
+                runCatching { container.bookRepository.prepareShare(bookId) { progress = it } }
+                    .onSuccess { share ->
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = share.mimeType
+                            putExtra(Intent.EXTRA_STREAM, share.uri)
+                            putExtra(Intent.EXTRA_TITLE, share.fileName)
+                            // The clip carries the read grant through the chooser to the target.
+                            clipData = ClipData.newRawUri(share.fileName, share.uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(Intent.createChooser(send, "Share \u201c$title\u201d"))
+                    }
+                    .onFailure { error = it.message ?: "Couldn't prepare the book to share." }
+                progress = null
+            }
+        },
+        enabled = progress == null,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Icon(Icons.Outlined.Share, contentDescription = null)
+        Spacer(Modifier.width(8.dp))
+        val label = progress?.let { "Preparing… ${(it * 100).toInt()}%" } ?: "Share"
+        Text(label, style = MaterialTheme.typography.labelLarge)
+    }
+    progress?.let {
+        LinearProgressIndicator(
+            progress = { it },
+            drawStopIndicator = {},
+            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+        )
+    }
+    error?.let {
+        Text(
+            it,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(top = 4.dp)
         )
     }
 }

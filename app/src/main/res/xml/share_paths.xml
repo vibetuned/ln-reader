@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What the share FileProvider may hand out: the files a share prepares, in cache/share/, and the
+  audiobooks in the default download folder, shared in place rather than copied. Nothing is
+  browsable: a share target gets read access to the one URI it was sent, and nothing else.
+-->
+<paths>
+    <cache-path name="share" path="share/" />
+    <files-path name="books" path="downloads/" />
+</paths>

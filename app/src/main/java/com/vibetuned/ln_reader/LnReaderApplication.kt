@@ -10,5 +10,7 @@ class LnReaderApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // Off the main thread: an interrupted zip import can leave a gigabyte behind.
+        Thread({ container.bookRepository.cleanUpTemporaryFiles() }, "temp-cleanup").start()
     }
 }

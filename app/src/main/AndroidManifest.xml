@@ -36,6 +36,17 @@
             </intent-filter>
         </activity>
 
+        <!-- Sharing a book (Quick Share, Nearby, mail…): serves the file a share prepared. -->
+        <provider
+            android:name=".data.repo.ShareFileProvider"
+            android:authorities="${applicationId}.share"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/share_paths" />
+        </provider>
+
         <service
             android:name=".player.PlaybackService"
             android:exported="true"

@@ -2,19 +2,20 @@
 
 ## v1.7 — 2026-10-20
 
-The app now runs on Android 10 and newer, down from Android 13; a zip of books
-imports in one go; the player and the mini-player show an armed sleep timer's
-countdown; and the playback notification names
-the current chapter instead of leaving its second line blank.
+The app now runs on Android 10 and newer, down from Android 13. A zip of books
+imports in one go, and a book can be shared whole; the player and the mini-player
+show an armed sleep timer's countdown; and the playback notification names the
+current chapter instead of leaving its second line blank.
 
 ### Play Store release notes (≤ 500 chars)
 
 ```
-• Now runs on Android 10 and newer (was Android 13).
-• Import a .zip: each book comes in with its EPUB and sync file; several books get a collection.
-• The sleep timer's countdown shows on the player's cover and in the mini-player.
-• Illustration markers too close together on the scrubber share one badge with a menu.
-• The playback notification and lock screen show the current chapter instead of a blank line (or "null" on some phones).
+• Runs on Android 10 and newer (was 13).
+• Import a .zip of books: each comes in with its EPUB and sync file; several get a collection.
+• Share a book with Quick Share or any app, EPUB and sync included.
+• Sleep timer countdown on the player cover and in the mini-player.
+• Illustration markers too close together share one badge with a menu.
+• The playback notification shows the current chapter, not a blank line or "null".
 ```
 
 ### Compatibility
@@ -37,6 +38,12 @@ the current chapter instead of leaving its second line blank.
   downloads, and each audiobook is moved into place rather than copied: a 1 GB
   book takes 1 GB of space, not 2. macOS's `__MACOSX` and `._` copies are
   skipped, and one book failing doesn't stop the rest.
+- **Share a book** — a Share button in the book sheet sends it with Quick Share, Nearby
+  or anything on the share sheet, in the shape ln-reader on the other end rebuilds:
+  an audiobook with its EPUB or sync manifest travels as one zip with all three,
+  an audiobook on its own as its `.m4b`, an EPUB-only book as its `.epub` — each
+  named after the book, not the file it came from. A lone `.m4b` is shared in
+  place, no copy; a zip is written uncompressed, with progress on the button.
 
 ### Player
 - **Sleep timer on the cover** — while a sleep timer is armed, a band across

@@ -387,6 +387,105 @@ class BookRepository(
     private fun epubExtractionDir(bookId: String): File =
         File(context.filesDir, "epubs/$bookId")
 
+    // ── sharing ──────────────────────────────────────────────────────────────────
+
+    /** A file ready for the system share sheet. */
+    data class BookShare(val uri: Uri, val mimeType: String, val fileName: String)
+
+    /**
+     * Prepares a book to send with Quick Share, Nearby, mail or anything else on the share sheet,
+     * in the shape that lets ln-reader on the other end rebuild it:
+     * - an audiobook with an EPUB or a sync manifest goes as one zip holding all of them in a
+     *   folder — the layout zip import reads, so the book arrives with its synced text;
+     * - an audiobook on its own goes as its .m4b;
+     * - an EPUB-only book goes as its .epub.
+     *
+     * Files are named after the book, not whatever they were called on disk. The zip is written
+     * uncompressed — audio doesn't shrink — so it costs a copy and no more; a bare .m4b in the
+     * app's own storage is shared in place, which costs nothing (see [ShareFileProvider]).
+     * [onProgress] runs from 0 to 1 while a zip is written.
+     */
+    suspend fun prepareShare(bookId: String, onProgress: (Float) -> Unit = {}): BookShare =
+        withContext(Dispatchers.IO) {
+            val book = bookDao.byId(bookId) ?: error("This book is no longer in the library.")
+            val dir = shareDir().apply { deleteRecursively(); mkdirs() }
+            val name = shareFileName(book.title)
+            val epub = book.epubPath?.let(::File)?.takeIf { it.isFile }
+            val sync = book.syncPath?.let(::File)?.takeIf { it.isFile }
+
+            if (book.mediaKind == MEDIA_KIND_EPUB) {
+                val source = epub ?: error("This book's EPUB is missing.")
+                val target = File(dir, "$name.epub")
+                source.copyTo(target)
+                return@withContext shareOf(target, "application/epub+zip")
+            }
+
+            val audio = Uri.parse(book.uri)
+            if (epub == null && sync == null) {
+                // In the app's own storage: shared in place, under the book's title. Anywhere
+                // else (a picked download folder, a local file referenced in place) the original
+                // document is handed over as it is.
+                if (audio.scheme != "file") return@withContext BookShare(audio, "audio/mp4", "$name.m4b")
+                return@withContext BookShare(
+                    uri = ShareFileProvider.uriFor(context, audio.toFile(), displayName = "$name.m4b"),
+                    mimeType = "audio/mp4",
+                    fileName = "$name.m4b"
+                )
+            }
+
+            val zip = File(dir, "$name.zip")
+            val sources = buildList {
+                add("$name/$name.m4b" to { openSource(audio) })
+                epub?.let { add("$name/$name.epub" to { it.inputStream() }) }
+                sync?.let { add("$name/sync_manifest.json" to { it.inputStream() }) }
+            }
+            val total = (sizeOf(audio) + (epub?.length() ?: 0) + (sync?.length() ?: 0)).coerceAtLeast(1)
+            var written = 0L
+            java.util.zip.ZipOutputStream(zip.outputStream().buffered(256 * 1024)).use { out ->
+                // Deflate at level 0: stored blocks, so no CPU spent on audio that won't compress,
+                // and one pass — the checksums are computed as the bytes go by.
+                out.setLevel(java.util.zip.Deflater.NO_COMPRESSION)
+                for ((entry, open) in sources) {
+                    out.putNextEntry(java.util.zip.ZipEntry(entry))
+                    open().use { input ->
+                        val buffer = ByteArray(256 * 1024)
+                        while (true) {
+                            val n = input.read(buffer)
+                            if (n < 0) break
+                            out.write(buffer, 0, n)
+                            written += n
+                            onProgress((written.toFloat() / total).coerceIn(0f, 1f))
+                        }
+                    }
+                    out.closeEntry()
+                }
+            }
+            shareOf(zip, "application/zip")
+        }
+
+    private fun openSource(uri: Uri) =
+        context.contentResolver.openInputStream(uri) ?: error("Couldn't open this book's audio.")
+
+    private fun shareOf(file: File, mimeType: String) = BookShare(
+        uri = ShareFileProvider.uriFor(context, file),
+        mimeType = mimeType,
+        fileName = file.name
+    )
+
+    private fun shareDir() = File(context.cacheDir, "share")
+
+    /**
+     * Removes what an earlier run may have left: a zip import's staging folder, when the app was
+     * stopped halfway through one, and shares more than a day old. Called once per process start,
+     * when no import can be under way. Recent shares stay: the app is restarted to serve a file
+     * another app is still reading, and deleting it then would cut the transfer short.
+     */
+    fun cleanUpTemporaryFiles() {
+        File(context.filesDir, "import-staging").deleteRecursively()
+        val dayAgo = System.currentTimeMillis() - 24L * 60 * 60 * 1000
+        shareDir().listFiles()?.filter { it.lastModified() < dayAgo }?.forEach { it.deleteRecursively() }
+    }
+
     // ── zips ───────────────────────────────────────────────────────────────────
 
     private fun isZip(uri: Uri, fileName: String?): Boolean {
