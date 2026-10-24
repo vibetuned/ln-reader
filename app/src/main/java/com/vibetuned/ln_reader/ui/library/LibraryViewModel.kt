@@ -123,14 +123,16 @@ class LibraryViewModel(
     fun import(uri: Uri) {
         viewModelScope.launch {
             _state.update { it.copy(isImporting = true, importProgress = null, error = null) }
-            val result = bookRepository.import(uri, collectionId = collectionId) { progress ->
+            // importAny: a zip can bring several books, and some can fail while the rest import.
+            val result = bookRepository.importAny(uri, collectionId = collectionId) { progress ->
                 _state.update { it.copy(importProgress = progress) }
             }
             _state.update { current ->
                 current.copy(
                     isImporting = false,
                     importProgress = null,
-                    error = result.exceptionOrNull()?.message?.takeIf { it.isNotBlank() }
+                    error = result.getOrNull()?.problem
+                        ?: result.exceptionOrNull()?.message?.takeIf { it.isNotBlank() }
                         ?: result.exceptionOrNull()?.javaClass?.simpleName?.let { "Import failed: $it" }
                 )
             }

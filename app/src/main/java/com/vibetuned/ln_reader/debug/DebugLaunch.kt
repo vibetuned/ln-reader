@@ -34,7 +34,7 @@ import java.io.File
  *
  * | extra | type | effect |
  * | --- | --- | --- |
- * | `autoImport` | string / string[] (`--esa a,b`) | import each path (m4b or epub); an m4b picks up a sibling `*.epub` and `sync_manifest.json` |
+ * | `autoImport` | string / string[] (`--esa a,b`) | import each path (m4b, epub or zip); an m4b picks up a sibling `*.epub` and `sync_manifest.json` |
  * | `autoPlay` | bool | open the first imported book playing |
  * | `testCollectionAdvance` | bool | put the imports in a "Test Shelf", open the first, seek to 20 s before its end |
  * | `openTitle` | string | open the library book whose title starts with this (case-insensitive) — the player, or the reader for an EPUB-only book |
@@ -123,6 +123,20 @@ object DebugLaunch {
         val imported = mutableListOf<Book>()
         for (path in request.autoImport) {
             val file = File(path)
+            if (file.extension.equals("zip", ignoreCase = true)) {
+                container.bookRepository.importAny(file.toUri())
+                    .onSuccess { outcome ->
+                        android.util.Log.i(
+                            TAG,
+                            "autoImport: zip gave ${outcome.books.size} book(s)" +
+                                (outcome.collectionName?.let { " in collection \"$it\"" } ?: "") +
+                                (outcome.problem?.let { "; $it" } ?: "")
+                        )
+                        imported += outcome.books
+                    }
+                    .onFailure { android.util.Log.w(TAG, "autoImport failed for $path", it) }
+                continue
+            }
             val result = container.bookRepository.import(file.toUri())
             val book = result.getOrElse {
                 android.util.Log.w(TAG, "autoImport failed for $path", it)

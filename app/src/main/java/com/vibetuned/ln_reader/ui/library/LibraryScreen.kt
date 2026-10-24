@@ -80,9 +80,13 @@ import com.vibetuned.ln_reader.ui.common.appContainer
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-/** What the picker offers: .m4b audiobooks and .epub books (the repository tells them apart). */
+/**
+ * What the picker offers: .m4b audiobooks, .epub books, and .zip files of either (the repository
+ * tells them apart). Some providers label zips with the older Windows type, so both are listed.
+ */
 private val BOOK_MIME_TYPES = arrayOf(
-    "audio/mp4", "audio/x-m4b", "application/epub+zip", "application/octet-stream"
+    "audio/mp4", "audio/x-m4b", "application/epub+zip",
+    "application/zip", "application/x-zip-compressed", "application/octet-stream"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -340,7 +344,7 @@ private fun ImportProgressBanner(
     // Stay indeterminate until the first bytes actually arrive. Cloud providers can take a while to
     // open the stream (preparing the file server-side) and emit no progress meanwhile; a
     // determinate bar pinned at 0% reads as "frozen", whereas a spinning bar says "starting…".
-    val determinate = phase == com.vibetuned.ln_reader.data.repo.BookRepository.ImportProgress.Phase.Downloading &&
+    val determinate = (phase == com.vibetuned.ln_reader.data.repo.BookRepository.ImportProgress.Phase.Downloading || phase == com.vibetuned.ln_reader.data.repo.BookRepository.ImportProgress.Phase.Extracting) &&
         total > 0 && read > 0
 
     androidx.compose.material3.Surface(
@@ -360,7 +364,12 @@ private fun ImportProgressBanner(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                text = phaseLabel(phase, read, total),
+                text = phaseLabel(phase, read, total).let { label ->
+                    // A zip with several books says which one it is on.
+                    val index = progress?.bookIndex ?: 0
+                    val count = progress?.bookCount ?: 0
+                    if (count > 1 && index > 0) "Book $index of $count · $label" else label
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -373,6 +382,12 @@ private fun phaseLabel(
     read: Long,
     total: Long
 ): String = when (phase) {
+    com.vibetuned.ln_reader.data.repo.BookRepository.ImportProgress.Phase.Extracting ->
+        when {
+            read <= 0L -> "Opening zip…"
+            total > 0 -> "Unzipping: ${formatBytes(read)} / ${formatBytes(total)}"
+            else -> "Unzipping: ${formatBytes(read)}"
+        }
     com.vibetuned.ln_reader.data.repo.BookRepository.ImportProgress.Phase.Parsing -> "Parsing m4b…"
     com.vibetuned.ln_reader.data.repo.BookRepository.ImportProgress.Phase.Downloading ->
         when {

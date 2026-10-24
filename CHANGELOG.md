@@ -2,14 +2,16 @@
 
 ## v1.7 — 2026-10-20
 
-The app now runs on Android 10 and newer, down from Android 13; the player and
-the mini-player show an armed sleep timer's countdown; and the playback notification names
+The app now runs on Android 10 and newer, down from Android 13; a zip of books
+imports in one go; the player and the mini-player show an armed sleep timer's
+countdown; and the playback notification names
 the current chapter instead of leaving its second line blank.
 
 ### Play Store release notes (≤ 500 chars)
 
 ```
 • Now runs on Android 10 and newer — previously Android 13 was required.
+• Import a .zip: every book in it comes in with its EPUB and sync file, and several books get a collection.
 • The sleep timer's countdown now shows on the player's cover, and in place of the book title in the mini-player.
 • The playback notification and lock screen show the current chapter under the book title, instead of a blank line (or "null" on some phones).
 ```
@@ -20,6 +22,20 @@ the current chapter instead of leaving its second line blank.
   supports Android 5, lint finds no newer-API call at this floor, the
   notification-permission prompt was already skipped below Android 13, and all
   database queries and migrations stay within Android 10's SQLite.
+
+### Library
+- **Import a zip** — pick a `.zip` and every book in it is imported. Each
+  `.m4b` becomes a book and takes the `.epub` and sync manifest from its folder;
+  an `.epub` with no audio becomes an EPUB-only book. Titles come from the files,
+  as when you import them one by one.
+- **Several books make a collection**, named after the zipped folder (or the
+  zip, minus Google Drive's date stamp). An existing collection of that name is
+  reused, so the next volumes of a series join the earlier ones. A single book
+  stays at the top level, even though a Drive download wraps it in a folder.
+- Streams straight from the source, so a zip still in Drive is unpacked as it
+  downloads, and each audiobook is moved into place rather than copied: a 1 GB
+  book takes 1 GB of space, not 2. macOS's `__MACOSX` and `._` copies are
+  skipped, and one book failing doesn't stop the rest.
 
 ### Player
 - **Sleep timer on the cover** — while a sleep timer is armed, a band across

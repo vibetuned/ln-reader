@@ -157,6 +157,10 @@ interface CollectionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(collection: CollectionEntity)
 
+    /** A collection by name, ignoring case — the oldest, if there are several. */
+    @Query("SELECT * FROM collections WHERE name = :name COLLATE NOCASE ORDER BY createdAt LIMIT 1")
+    suspend fun byName(name: String): CollectionEntity?
+
     @Query("DELETE FROM collections WHERE id = :id")
     suspend fun delete(id: String)
 }

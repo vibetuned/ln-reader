@@ -12,6 +12,7 @@ import com.vibetuned.ln_reader.data.db.BookDao
 import com.vibetuned.ln_reader.data.db.BookEntity
 import com.vibetuned.ln_reader.data.db.ChapterDao
 import com.vibetuned.ln_reader.data.db.ChapterEntity
+import com.vibetuned.ln_reader.data.db.CollectionEntity
 import com.vibetuned.ln_reader.companion.EpubReader
 import com.vibetuned.ln_reader.data.db.EmbeddedImageDao
 import com.vibetuned.ln_reader.data.db.EmbeddedImageEntity
@@ -48,9 +49,43 @@ class BookRepository(
     data class ImportProgress(
         val phase: Phase,
         val bytesRead: Long = 0,
-        val totalBytes: Long = -1
+        val totalBytes: Long = -1,
+        /** 1-based position of the book being imported, when a zip brings several; else 0. */
+        val bookIndex: Int = 0,
+        val bookCount: Int = 0
     ) {
-        enum class Phase { Parsing, Downloading, Finalizing }
+        enum class Phase { Extracting, Parsing, Downloading, Finalizing }
+    }
+
+    /**
+     * What an import brought in. One book for a single file; a zip can bring several, and some of
+     * them can fail while the rest succeed, which [failures] lists by file name.
+     */
+    data class ImportOutcome(
+        val books: List<Book>,
+        val failures: List<Pair<String, String>> = emptyList(),
+        /** The collection a multi-book zip filled, when the import created or reused one. */
+        val collectionName: String? = null
+    ) {
+        /** A message for the user when part of the import didn't make it; null when all did. */
+        val problem: String?
+            get() {
+                if (failures.isEmpty()) return null
+                val total = books.size + failures.size
+                val names = failures.joinToString("; ") { (name, why) -> "$name: $why" }
+                return "Imported ${books.size} of $total books. Couldn't import $names"
+            }
+    }
+
+    /** Imports a picked file of any supported kind: an .m4b, an .epub, or a .zip of them. */
+    suspend fun importAny(
+        uri: Uri,
+        collectionId: String? = null,
+        onProgress: (ImportProgress) -> Unit = {}
+    ): Result<ImportOutcome> {
+        val meta = withContext(Dispatchers.IO) { queryUriMeta(uri) }
+        return if (isZip(uri, meta.name)) importZip(uri, meta, collectionId, onProgress)
+        else import(uri, collectionId, onProgress).map { ImportOutcome(listOf(it)) }
     }
 
     fun books(): Flow<List<Book>> =
@@ -184,11 +219,17 @@ class BookRepository(
         }
     }
 
+    /**
+     * [adoptFile] is an audio file already on this device that the import may take over — one just
+     * extracted from a zip. It is moved into place rather than copied, so a book from a zip never
+     * exists twice on disk; [uri] is then only that file's address.
+     */
     private suspend fun importAudio(
         uri: Uri,
         sourceMeta: UriMeta,
         collectionId: String?,
-        onProgress: (ImportProgress) -> Unit
+        onProgress: (ImportProgress) -> Unit,
+        adoptFile: File? = null
     ): Result<Book> = withContext(Dispatchers.IO) {
         runCatching {
             val bookId = UUID.randomUUID().toString()
@@ -198,7 +239,15 @@ class BookRepository(
                 // For cloud sources, download the whole file first and parse the local copy.
                 // Parsing has to read most of the file anyway, so a single sequential download
                 // beats a scattered network parse followed by a separate download.
-                val downloadedUri: Uri? = if (isRemoteUri(uri)) {
+                val downloadedUri: Uri? = if (adoptFile != null) {
+                    val targetFolder =
+                        downloadPreferences.downloadFolderUri.firstOrNull()?.let { Uri.parse(it) }
+                    val (destUri, undoMove) = moveToLocation(adoptFile, bookId, fileName, targetFolder) { read ->
+                        onProgress(ImportProgress(ImportProgress.Phase.Downloading, read, adoptFile.length()))
+                    }
+                    cleanup += undoMove
+                    destUri
+                } else if (isRemoteUri(uri)) {
                     val total = sourceMeta.size.takeIf { it > 0 } ?: -1L
                     onProgress(ImportProgress(ImportProgress.Phase.Downloading, 0, total))
                     val targetFolder =
@@ -337,6 +386,140 @@ class BookRepository(
     /** Where the reader unzips a book's EPUB; must match `ReaderViewModel` / `EpubWebView`. */
     private fun epubExtractionDir(bookId: String): File =
         File(context.filesDir, "epubs/$bookId")
+
+    // ── zips ───────────────────────────────────────────────────────────────────
+
+    private fun isZip(uri: Uri, fileName: String?): Boolean {
+        if (fileName != null) return fileName.endsWith(".zip", ignoreCase = true)
+        // No name to go by: trust the provider's type. Not "application/epub+zip" — an EPUB is a
+        // zip too, but it is a book on its own.
+        val type = runCatching { context.contentResolver.getType(uri) }.getOrNull()
+        return type == "application/zip" || type == "application/x-zip-compressed"
+    }
+
+    /**
+     * Imports every book in a zip ([ZipBookPlanner] decides what is a book). Entries are unpacked
+     * into a staging folder beside the app's own files, so each audiobook is then moved, not
+     * copied, into place; the staging folder is removed whatever happens.
+     *
+     * Several books go into a collection, named after the zipped folder or the zip itself, and an
+     * existing collection of that name is reused, so the next volumes of a series join the earlier
+     * ones. A single book never gets a collection of its own — a Drive download wraps even one book
+     * in a folder. When the import starts inside a collection, everything goes into that one.
+     *
+     * One book failing doesn't stop the others; the outcome lists what failed.
+     */
+    private suspend fun importZip(
+        uri: Uri,
+        meta: UriMeta,
+        collectionId: String?,
+        onProgress: (ImportProgress) -> Unit
+    ): Result<ImportOutcome> = withContext(Dispatchers.IO) {
+        runCatching {
+            val staging = File(context.filesDir, "import-staging/${UUID.randomUUID()}")
+            try {
+                val total = meta.size.takeIf { it > 0 } ?: -1L
+                onProgress(ImportProgress(ImportProgress.Phase.Extracting, 0, total))
+                val extracted = ZipExtractor.extract(
+                    open = { context.contentResolver.openInputStream(uri) ?: error("Couldn't open the zip.") },
+                    dir = staging
+                ) { read -> onProgress(ImportProgress(ImportProgress.Phase.Extracting, read, total)) }
+
+                // A .json only counts if it is a sync manifest; the planner can't look inside.
+                val usable = extracted.filter { path ->
+                    !path.endsWith(".json", ignoreCase = true) || isSyncManifest(File(staging, path))
+                }
+                val plan = ZipBookPlanner.plan(usable)
+                require(plan.books.isNotEmpty()) { "There is no .m4b or .epub in this zip." }
+
+                var createdCollection: String? = null
+                var collectionName: String? = null
+                val targetCollection = collectionId ?: if (plan.books.size > 1) {
+                    val name = ZipBookPlanner.collectionName(plan, meta.name)
+                    collectionName = name
+                    database.collectionDao().byName(name)?.id ?: UUID.randomUUID().toString().also { id ->
+                        database.collectionDao().upsert(
+                            CollectionEntity(id = id, name = name, createdAt = System.currentTimeMillis())
+                        )
+                        createdCollection = id
+                    }
+                } else null
+
+                val books = mutableListOf<Book>()
+                val failures = mutableListOf<Pair<String, String>>()
+                plan.books.forEachIndexed { index, zipBook ->
+                    val primary = File(staging, zipBook.primary)
+                    val forBook: (ImportProgress) -> Unit = {
+                        onProgress(it.copy(bookIndex = index + 1, bookCount = plan.books.size))
+                    }
+                    val result = if (zipBook.audio != null) {
+                        importAudio(
+                            uri = primary.toUri(),
+                            sourceMeta = UriMeta(primary.name, primary.length()),
+                            collectionId = targetCollection,
+                            onProgress = forBook,
+                            adoptFile = primary
+                        ).onSuccess { book ->
+                            zipBook.epub?.let { attachEpub(book.id, File(staging, it).toUri()) }
+                            zipBook.sync?.let { attachSync(book.id, File(staging, it).toUri()) }
+                        }
+                    } else {
+                        importEpub(
+                            uri = primary.toUri(),
+                            sourceMeta = UriMeta(primary.name, primary.length()),
+                            collectionId = targetCollection,
+                            onProgress = forBook
+                        )
+                    }
+                    result
+                        .onSuccess { books += it }
+                        .onFailure { failures += primary.name to (it.message ?: it.javaClass.simpleName) }
+                }
+
+                if (books.isEmpty()) {
+                    createdCollection?.let { database.collectionDao().delete(it) }
+                    val (name, why) = failures.first()
+                    error("Couldn't import $name: $why")
+                }
+                // Re-read: attaching an EPUB or a sync manifest updated the rows after import.
+                val fresh = books.map { book -> bookDao.byId(book.id)?.toDomain() ?: book }
+                ImportOutcome(fresh, failures, collectionName)
+            } finally {
+                staging.deleteRecursively()
+            }
+        }
+    }
+
+    /** A sync manifest is the JSON ln-vox writes: a `beats` list mapping audio to EPUB spans. */
+    private fun isSyncManifest(file: File): Boolean = runCatching {
+        file.length() < MAX_MANIFEST_BYTES && file.readText().contains("\"beats\"")
+    }.getOrDefault(false)
+
+    /**
+     * Moves an audio file that's already on the device into the book's place. The default download
+     * location is on the same storage as the staging folder, so this is a rename: no copy, no
+     * second gigabyte. A download folder the user picked is somewhere else entirely and gets a
+     * copy instead, with the original removed afterwards.
+     */
+    private fun moveToLocation(
+        file: File,
+        bookId: String,
+        fileName: String?,
+        targetFolder: Uri?,
+        onBytes: (Long) -> Unit
+    ): Pair<Uri, () -> Unit> {
+        if (targetFolder != null) {
+            return downloadToLocation(file.toUri(), bookId, fileName, targetFolder, onBytes)
+                .also { file.delete() }
+        }
+        val dir = bookDownloadDir(bookId).also { it.mkdirs() }
+        val target = File(dir, (fileName ?: "$bookId.m4b").replace(File.separatorChar, '_'))
+        if (!file.renameTo(target)) {
+            file.inputStream().use { input -> target.outputStream().use { input.copyTo(it) } }
+            file.delete()
+        }
+        return target.toUri() to { dir.deleteRecursively() }
+    }
 
     // ── downloads ──────────────────────────────────────────────────────────────
 
@@ -483,4 +666,9 @@ class BookRepository(
 
     private fun fileSizeFromUri(uri: Uri): Long =
         DocumentFile.fromSingleUri(context, uri)?.length() ?: 0L
+
+    private companion object {
+        /** No real sync manifest comes close; anything bigger isn't worth reading to find out. */
+        const val MAX_MANIFEST_BYTES = 64L * 1024 * 1024
+    }
 }
